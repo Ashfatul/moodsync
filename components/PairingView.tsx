@@ -25,6 +25,7 @@ export default function PairingView({
   const [copied, setCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [localCouple, setLocalCouple] = useState<Couple | null>(null);
+  const [showJoinInstead, setShowJoinInstead] = useState(false);
 
   const activeCouple = couple || localCouple;
   const displayName = profile?.name || 'প্রিয়জন';
@@ -116,8 +117,8 @@ export default function PairingView({
           </div>
         )}
 
-        {/* If couple was created and waiting for partner */}
-        {activeCouple?.invite_code ? (
+        {/* If couple was created and waiting for partner, BUT user has option to enter partner's code */}
+        {activeCouple?.invite_code && !showJoinInstead ? (
           <div className="bg-[var(--card)] p-6 rounded-3xl border border-[var(--card-border)] shadow-sm space-y-4 animate-in fade-in duration-300">
             <div className="w-10 h-10 mx-auto rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center text-amber-600">
               <KeyRound className="w-5 h-5" />
@@ -157,30 +158,53 @@ export default function PairingView({
               </button>
             </div>
 
-            <p className="text-[11px] text-stone-600 dark:text-stone-300 italic">
-              সঙ্গী কোডটি ব্যবহার করে লগইন করলে এই পর্দা স্বয়ংক্রিয়ভাবে খুলে যাবে।
-            </p>
+            <div className="pt-2 border-t border-[var(--card-border)]/60">
+              <button
+                type="button"
+                onClick={() => setShowJoinInstead(true)}
+                className="text-xs text-rose-600 dark:text-rose-400 font-semibold hover:underline"
+              >
+                অথবা তোমার সঙ্গীর কোড দিয়ে যুক্ত হতে চাও? এখানে চাপ দাও
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* OPTION 1: Create Couple */}
-            <div className="bg-[var(--card)] p-5 rounded-3xl border border-[var(--card-border)] space-y-3">
-              <h3 className="text-sm font-bold text-[var(--foreground)]">
-                {STRINGS_BN.pairing.createTitle}
-              </h3>
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={loading}
-                className="w-full py-3.5 px-4 rounded-2xl bg-rose-500 hover:bg-rose-600 active:scale-[0.98] text-white text-sm font-bold shadow-sm transition-all"
-              >
-                {loading ? 'তৈরি হচ্ছে...' : STRINGS_BN.pairing.createBtn}
-              </button>
-            </div>
+            {/* If user toggled from active code view */}
+            {activeCouple?.invite_code && showJoinInstead && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowJoinInstead(false)}
+                  className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 font-medium"
+                >
+                  ← আমার কোড ফিরিয়ে দেখাও
+                </button>
+              </div>
+            )}
 
-            <div className="text-xs text-stone-600 dark:text-stone-300 font-semibold uppercase tracking-wider">
-              {STRINGS_BN.pairing.or}
-            </div>
+            {/* OPTION 1: Create Couple (only show if user has not yet created one) */}
+            {!activeCouple?.invite_code && (
+              <>
+                <div className="bg-[var(--card)] p-5 rounded-3xl border border-[var(--card-border)] space-y-3">
+                  <h3 className="text-sm font-bold text-[var(--foreground)]">
+                    {STRINGS_BN.pairing.createTitle}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleCreate}
+                    disabled={loading}
+                    className="w-full py-3.5 px-4 rounded-2xl bg-rose-500 hover:bg-rose-600 active:scale-[0.98] text-white text-sm font-bold shadow-sm transition-all"
+                  >
+                    {loading ? 'তৈরি হচ্ছে...' : STRINGS_BN.pairing.createBtn}
+                  </button>
+                </div>
+
+                <div className="text-xs text-stone-600 dark:text-stone-300 font-semibold uppercase tracking-wider">
+                  {STRINGS_BN.pairing.or}
+                </div>
+              </>
+            )}
 
             {/* OPTION 2: Join with Code */}
             <form
