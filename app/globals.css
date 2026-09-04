@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FCFAF8;
+  --foreground: #1E1B1E;
+  --card: #FFFFFF;
+  --card-border: #F1ECE7;
+  --primary: #F43F5E;
+  --primary-hover: #E11D48;
+  --primary-light: #FFF1F2;
+  --muted: #736E77;
+  --muted-bg: #F5EFEB;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121012;
+    --foreground: #F5F2F4;
+    --card: #1C191D;
+    --card-border: #2D2730;
+    --primary: #FB7185;
+    --primary-hover: #F43F5E;
+    --primary-light: #33131D;
+    --muted: #A8A1AC;
+    --muted-bg: #231E26;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-hind-siliguri), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth transitions for mood and cards */
+.mood-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbar hiding for clean app feel */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
