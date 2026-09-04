@@ -20,18 +20,23 @@ export default function PairingView({
   onJoinCouple,
   onSignOut,
 }: PairingViewProps) {
-  const [userName, setUserName] = useState(profile?.name || '');
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [localCouple, setLocalCouple] = useState<Couple | null>(null);
+
+  const activeCouple = couple || localCouple;
+  const displayName = profile?.name || 'প্রিয়জন';
 
   const handleCreate = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await onCreateCouple(userName.trim() || 'প্রিয়জন');
-      if (!res.success && res.error) {
+      const res = await onCreateCouple(displayName);
+      if (res.success && res.couple) {
+        setLocalCouple(res.couple);
+      } else if (!res.success && res.error) {
         setErrorMessage(res.error);
       }
     } finally {
@@ -48,8 +53,10 @@ export default function PairingView({
     setLoading(true);
     setErrorMessage(null);
     try {
-      const res = await onJoinCouple(inviteCode.trim(), userName.trim() || 'প্রিয়জন');
-      if (!res.success && res.error) {
+      const res = await onJoinCouple(inviteCode.trim(), displayName);
+      if (res.success && res.couple) {
+        setLocalCouple(res.couple);
+      } else if (!res.success && res.error) {
         setErrorMessage(res.error);
       }
     } finally {
@@ -58,21 +65,21 @@ export default function PairingView({
   };
 
   const handleCopy = async () => {
-    if (!couple?.invite_code) return;
+    if (!activeCouple?.invite_code) return;
     try {
-      await navigator.clipboard.writeText(couple.invite_code);
+      await navigator.clipboard.writeText(activeCouple.invite_code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {}
   };
 
   const handleShare = async () => {
-    if (!couple?.invite_code) return;
+    if (!activeCouple?.invite_code) return;
     if (navigator.share) {
       try {
         await navigator.share({
           title: 'মুডসিঙ্ক আমন্ত্রণ',
-          text: `মুডসিঙ্কে আমার সাথে যুক্ত হও! আমন্ত্রণ কোড: ${couple.invite_code}`,
+          text: `মুডসিঙ্কে আমার সাথে যুক্ত হও! আমন্ত্রণ কোড: ${activeCouple.invite_code}`,
           url: window.location.origin,
         });
       } catch {
@@ -92,26 +99,15 @@ export default function PairingView({
         </div>
 
         <div>
+          <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 mb-2">
+            স্বাগতম, {displayName}! ❤️
+          </span>
           <h2 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">
             {STRINGS_BN.pairing.title}
           </h2>
           <p className="text-xs text-stone-600 dark:text-stone-300 mt-1 max-w-xs mx-auto leading-relaxed">
             {STRINGS_BN.pairing.subtitle}
           </p>
-        </div>
-
-        {/* User Name Field */}
-        <div className="text-left bg-[var(--card)] p-4 rounded-2xl border border-[var(--card-border)] space-y-1.5">
-          <label className="block text-xs font-semibold text-stone-600 dark:text-stone-400">
-            তোমার নাম
-          </label>
-          <input
-            type="text"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-            placeholder="তোমার নাম লেখো"
-            className="w-full px-3.5 py-2 rounded-xl border border-stone-200 dark:border-stone-800 bg-[var(--background)] text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
-          />
         </div>
 
         {errorMessage && (
@@ -121,8 +117,8 @@ export default function PairingView({
         )}
 
         {/* If couple was created and waiting for partner */}
-        {couple?.invite_code ? (
-          <div className="bg-[var(--card)] p-6 rounded-3xl border border-[var(--card-border)] shadow-sm space-y-4">
+        {activeCouple?.invite_code ? (
+          <div className="bg-[var(--card)] p-6 rounded-3xl border border-[var(--card-border)] shadow-sm space-y-4 animate-in fade-in duration-300">
             <div className="w-10 h-10 mx-auto rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center text-amber-600">
               <KeyRound className="w-5 h-5" />
             </div>
@@ -138,7 +134,7 @@ export default function PairingView({
 
             <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700">
               <span className="font-mono text-3xl font-extrabold tracking-widest text-amber-900 dark:text-amber-100">
-                {couple.invite_code}
+                {activeCouple.invite_code}
               </span>
             </div>
 

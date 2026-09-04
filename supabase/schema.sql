@@ -145,7 +145,18 @@ ON CONFLICT (id) DO UPDATE SET
   description_bn = EXCLUDED.description_bn,
   sort_order = EXCLUDED.sort_order;
 
--- 7. ROW LEVEL SECURITY (RLS) POLICIES
+-- 7. HELPER FUNCTION TO PREVENT RLS INFINITE RECURSION
+CREATE OR REPLACE FUNCTION public.get_my_couple_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid();
+$$;
+
+-- 8. ROW LEVEL SECURITY (RLS) POLICIES
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.couples ENABLE ROW LEVEL SECURITY;
@@ -172,10 +183,7 @@ DROP POLICY IF EXISTS "Read profiles in couple" ON public.profiles;
 CREATE POLICY "Read profiles in couple" ON public.profiles FOR SELECT TO authenticated USING (
   id = auth.uid()
   OR id IN (
-    SELECT cm2.user_id
-    FROM public.couple_members cm1
-    JOIN public.couple_members cm2 ON cm1.couple_id = cm2.couple_id
-    WHERE cm1.user_id = auth.uid()
+    SELECT cm.user_id FROM public.couple_members cm WHERE cm.couple_id IN (SELECT public.get_my_couple_ids())
   )
 );
 
@@ -188,50 +196,39 @@ CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO au
 -- Couple Members RLS:
 DROP POLICY IF EXISTS "Read couple members" ON public.couple_members;
 CREATE POLICY "Read couple members" ON public.couple_members FOR SELECT TO authenticated USING (
-  couple_id IN (
-    SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid()
-  )
+  user_id = auth.uid()
+  OR couple_id IN (SELECT public.get_my_couple_ids())
 );
 
 -- Couples RLS:
 DROP POLICY IF EXISTS "Read own couple" ON public.couples;
 CREATE POLICY "Read own couple" ON public.couples FOR SELECT TO authenticated USING (
-  id IN (
-    SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid()
-  )
+  id IN (SELECT public.get_my_couple_ids())
 );
 
 DROP POLICY IF EXISTS "Update own couple" ON public.couples;
 CREATE POLICY "Update own couple" ON public.couples FOR UPDATE TO authenticated USING (
-  id IN (
-    SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid()
-  )
+  id IN (SELECT public.get_my_couple_ids())
 );
 
 -- Mood Events RLS:
 -- Strict: A user can only SELECT events belonging to their couple
 DROP POLICY IF EXISTS "Read own couple mood events" ON public.mood_events;
 CREATE POLICY "Read own couple mood events" ON public.mood_events FOR SELECT TO authenticated USING (
-  couple_id IN (
-    SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid()
-  )
+  couple_id IN (SELECT public.get_my_couple_ids())
 );
 
 -- Strict: A user can only INSERT as themselves and for their own couple
 DROP POLICY IF EXISTS "Insert own mood event" ON public.mood_events;
 CREATE POLICY "Insert own mood event" ON public.mood_events FOR INSERT TO authenticated WITH CHECK (
   user_id = auth.uid()
-  AND couple_id IN (
-    SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid()
-  )
+  AND couple_id IN (SELECT public.get_my_couple_ids())
 );
 
 -- Users can delete their own couple mood events if resetting
 DROP POLICY IF EXISTS "Delete own mood events" ON public.mood_events;
 CREATE POLICY "Delete own mood events" ON public.mood_events FOR DELETE TO authenticated USING (
-  couple_id IN (
-    SELECT couple_id FROM public.couple_members WHERE user_id = auth.uid()
-  )
+  couple_id IN (SELECT public.get_my_couple_ids())
 );
 
 -- Push subscriptions RLS:
@@ -240,7 +237,7 @@ CREATE POLICY "Manage own push subscriptions" ON public.push_subscriptions FOR A
   user_id = auth.uid()
 );
 
--- 8. SECURE HELPER FUNCTIONS
+-- 9. SECURE HELPER FUNCTIONS
 
 -- Helper to generate 6-character random alphanumeric invite code (skipping confusing chars 0, O, 1, I)
 CREATE OR REPLACE FUNCTION public.generate_invite_code()
@@ -375,6 +372,15 @@ BEGIN
       RAISE EXCEPTION 'এই কাপলে ইতোমধ্যে ২ জন সদস্য যুক্ত আছেন।';
     END IF;
   END IF;
+
+  -- If user was in an existing single-person couple, clean it up before joining partner's couple
+  DELETE FROM public.couples c
+  WHERE c.id IN (
+    SELECT cm.couple_id
+    FROM public.couple_members cm
+    WHERE cm.user_id = v_user_id
+      AND (SELECT COUNT(*) FROM public.couple_members WHERE couple_id = cm.couple_id) <= 1
+  );
 
   -- Add user as member
   INSERT INTO public.couple_members (couple_id, user_id)

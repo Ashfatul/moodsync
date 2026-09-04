@@ -389,6 +389,10 @@ export function useCoupleData() {
         return { success: false, error: error.message };
       }
 
+      if (data) {
+        setCouple(data);
+      }
+
       await loadInitialData();
       return { success: true, couple: data };
     } catch (err: unknown) {
@@ -411,6 +415,10 @@ export function useCoupleData() {
 
       if (error) {
         return { success: false, error: error.message };
+      }
+
+      if (data) {
+        setCouple(data);
       }
 
       await loadInitialData();
