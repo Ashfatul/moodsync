@@ -212,6 +212,22 @@ export const FIGHT_MOMENTS: FightItem[] = [
   },
 ];
 
+export interface NudgeOption {
+  id: string;
+  emoji: string;
+  text: string;
+  subtext: string;
+}
+
+export const QUICK_NUDGES: NudgeOption[] = [
+  { id: 'miss_you', emoji: '🥺', text: 'মিস করছি', subtext: 'তোমাকে খুব মিস করছি' },
+  { id: 'love_you', emoji: '💖', text: 'ভালোবাসি', subtext: 'অনেক অনেক ভালোবাসি' },
+  { id: 'hug', emoji: '🫂', text: 'একটু আদর', subtext: 'উষ্ণ আদর ও জড়িয়ে থাকা' },
+  { id: 'talk', emoji: '💬', text: 'কথা বলো না', subtext: 'একটু কথা বলো প্লিজ' },
+  { id: 'thinking', emoji: '☕', text: 'কী করছো?', subtext: 'তোমার কথাই ভাবছি' },
+  { id: 'kiss', emoji: '😘', text: 'উম্মাহ', subtext: 'মিষ্টি চুমু' },
+];
+
 export const STRINGS_BN = {
   appName: 'মুডসিঙ্ক',
   appTagline: 'মুড লুকানোর জন্য নয়। মুড বোঝার জন্য। ❤️',

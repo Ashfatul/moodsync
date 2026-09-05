@@ -70,7 +70,7 @@ export default function AuthView({ onOpenOnboarding, onSuccess }: AuthViewProps)
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-4 py-8 max-w-md mx-auto">
+    <div className="min-h-screen min-h-dvh flex flex-col justify-center px-4 py-8 max-w-md mx-auto">
       <div className="space-y-6">
         {/* Brand Icon & Title */}
         <div className="text-center space-y-2">

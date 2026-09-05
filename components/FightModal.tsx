@@ -67,7 +67,7 @@ export default function FightModal({ isOpen, onClose, onSubmit }: FightModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="w-full sm:max-w-md max-h-[90vh] flex flex-col bg-[var(--card)] rounded-t-3xl sm:rounded-3xl border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+      <div className="w-full sm:max-w-md max-h-[90vh] max-h-[90dvh] flex flex-col bg-[var(--card)] rounded-t-3xl sm:rounded-3xl border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
         {/* Top Header */}
         <div className="px-5 py-4 border-b border-[var(--card-border)] flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export default function FightModal({ isOpen, onClose, onSubmit }: FightModalProp
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-4">
+        <div className="p-6 overflow-y-auto min-h-0 flex-1 space-y-4 pb-safe">
           <div className="text-center">
             <h4 className="text-lg font-bold text-[var(--foreground)]">
               এখন কী অনুভব করছো?

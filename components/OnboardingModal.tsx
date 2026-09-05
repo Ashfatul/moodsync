@@ -16,7 +16,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-      <div className="w-full max-w-sm bg-[var(--card)] rounded-3xl border border-[var(--card-border)] p-6 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-300">
+      <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-[var(--card)] rounded-3xl border border-[var(--card-border)] p-6 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-300">
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-1.5">
           {[1, 2, 3].map((i) => (

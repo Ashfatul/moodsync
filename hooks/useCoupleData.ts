@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { Profile, Couple, MoodEvent, MoodEventWithDetails, UserPresenceState } from '@/lib/types';
 import { MOODS, NEEDS, STRINGS_BN } from '@/lib/constants/strings.bn';
+import { FloatingParticle, IncomingNudgeAlert } from '@/components/FloatingHearts';
 
 export function useCoupleData() {
   const [supabase] = useState(() => createClient());
@@ -18,6 +19,10 @@ export function useCoupleData() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [partnerPresence, setPartnerPresence] = useState<UserPresenceState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Quick Nudge & Miss You Bomb state
+  const [particles, setParticles] = useState<FloatingParticle[]>([]);
+  const [incomingNudge, setIncomingNudge] = useState<IncomingNudgeAlert | null>(null);
 
   const coupleIdRef = useRef<string | null>(null);
 
@@ -198,6 +203,29 @@ export function useCoupleData() {
     };
   }, [fetchMoodEvents, user, partnerProfile]);
 
+  // Spawn flying hearts & emojis for Miss You Bombs
+  const triggerFloatingHearts = useCallback((emoji = '❤️', count = 8) => {
+    const newParticles: FloatingParticle[] = [];
+    const particleCount = Math.min(Math.max(count * 2, 6), 30);
+
+    for (let i = 0; i < particleCount; i++) {
+      newParticles.push({
+        id: `p-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        emoji,
+        left: 5 + Math.random() * 85,
+        size: 24 + Math.random() * 26,
+        duration: 2 + Math.random() * 1.5,
+        delay: Math.random() * 0.4,
+      });
+    }
+
+    setParticles((prev) => [...prev.slice(-20), ...newParticles]);
+
+    setTimeout(() => {
+      setParticles((prev) => prev.filter((p) => !newParticles.some((np) => np.id === p.id)));
+    }, 4000);
+  }, []);
+
   // Supabase Realtime Subscription: Filtered by couple_id
   useEffect(() => {
     if (!couple?.id || !user?.id) return;
@@ -263,7 +291,26 @@ export function useCoupleData() {
           loadInitialData();
         }
       )
-      // 3. Lightweight presence: track partner online state
+      // 3. Listen for live incoming quick nudges / Miss You Bombs
+      .on(
+        'broadcast',
+        { event: 'quick_nudge' },
+        ({ payload }: { payload: { senderUserId?: string; senderName?: string; emoji?: string; text?: string; count?: number; customMessage?: string } }) => {
+          if (!payload) return;
+          const { senderUserId, senderName, emoji, text, count, customMessage } = payload;
+          if (senderUserId !== user.id) {
+            triggerFloatingHearts(emoji || '❤️', Math.min(count || 5, 20));
+            setIncomingNudge({
+              senderName: senderName || partnerProfile?.name || 'সঙ্গী',
+              emoji: emoji || '❤️',
+              text: text || 'মিস করছি',
+              count: count || 1,
+              customMessage,
+            });
+          }
+        }
+      )
+      // 4. Lightweight presence: track partner online state
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         let partnerActive: UserPresenceState | null = null;
@@ -561,6 +608,66 @@ export function useCoupleData() {
     URL.revokeObjectURL(url);
   };
 
+  // Send Quick Nudge / Miss You Bomb
+  const sendQuickNudge = async (payload: {
+    emoji: string;
+    text: string;
+    count: number;
+    customMessage?: string;
+  }) => {
+    if (!couple?.id || !user) return { success: false };
+
+    // 1. Locally spawn floating emojis
+    triggerFloatingHearts(payload.emoji, Math.min(payload.count, 20));
+
+    // 2. Broadcast via Supabase Realtime channel
+    const channelName = `couple-realtime-${couple.id}`;
+    const channels = supabase.getChannels();
+    const activeChannel = channels.find(
+      (c) => c.topic === `realtime:${channelName}` || c.topic === channelName
+    );
+    if (activeChannel) {
+      activeChannel
+        .send({
+          type: 'broadcast',
+          event: 'quick_nudge',
+          payload: {
+            senderUserId: user.id,
+            senderName: profile?.name || 'সঙ্গী',
+            emoji: payload.emoji,
+            text: payload.text,
+            count: payload.count,
+            customMessage: payload.customMessage,
+          },
+        })
+        .catch(() => {});
+    }
+
+    // 3. Send Web Push to partner's phone
+    try {
+      const { data: sData } = await supabase.auth.getSession();
+      const token = sData.session?.access_token;
+      fetch('/api/push/nudge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          coupleId: couple.id,
+          emoji: payload.emoji,
+          text: payload.text,
+          count: payload.count,
+          customMessage: payload.customMessage,
+        }),
+      }).catch((err) => console.warn('Nudge push error:', err));
+    } catch {
+      // Non-blocking
+    }
+
+    return { success: true };
+  };
+
   // Sign out
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -598,5 +705,11 @@ export function useCoupleData() {
     exportData,
     signOut,
     refreshData: loadInitialData,
+    // Quick Nudge & Miss You Bomb
+    particles,
+    incomingNudge,
+    setIncomingNudge,
+    triggerFloatingHearts,
+    sendQuickNudge,
   };
 }

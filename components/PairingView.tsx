@@ -92,7 +92,7 @@ export default function PairingView({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-4 py-8 max-w-md mx-auto">
+    <div className="min-h-screen min-h-dvh flex flex-col justify-center px-4 py-8 max-w-md mx-auto">
       <div className="space-y-6 text-center">
         {/* Logo */}
         <div className="w-16 h-16 mx-auto rounded-3xl bg-rose-100 dark:bg-rose-950/60 flex items-center justify-center text-rose-500 shadow-sm">

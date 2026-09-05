@@ -10,6 +10,8 @@ import WeekView from '@/components/WeekView';
 import SettingsView from '@/components/SettingsView';
 import MoodModal from '@/components/MoodModal';
 import FightModal from '@/components/FightModal';
+import NudgeModal from '@/components/NudgeModal';
+import FloatingHearts from '@/components/FloatingHearts';
 import AuthView from '@/components/AuthView';
 import PairingView from '@/components/PairingView';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -38,11 +40,17 @@ export default function Home() {
     exportData,
     signOut,
     refreshData,
+    particles,
+    incomingNudge,
+    setIncomingNudge,
+    triggerFloatingHearts,
+    sendQuickNudge,
   } = useCoupleData();
 
   const [activeTab, setActiveTab] = useState<TabType>('now');
   const [isMoodModalOpen, setIsMoodModalOpen] = useState(false);
   const [isFightModalOpen, setIsFightModalOpen] = useState(false);
+  const [isNudgeModalOpen, setIsNudgeModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   // Check if first-time visitor to show onboarding
@@ -63,7 +71,7 @@ export default function Home() {
   // Loading State
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[var(--background)]">
+      <div className="min-h-screen min-h-dvh flex flex-col items-center justify-center p-4 bg-[var(--background)]">
         <div className="w-14 h-14 rounded-3xl bg-rose-100 dark:bg-rose-950/60 flex items-center justify-center text-rose-500 shadow-sm animate-pulse mb-3">
           <Heart className="w-7 h-7 fill-rose-500 stroke-rose-500" />
         </div>
@@ -118,7 +126,7 @@ export default function Home() {
   ).length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+    <div className="min-h-screen min-h-dvh flex flex-col bg-[var(--background)] text-[var(--foreground)]">
       <OfflineBanner isOnline={isOnline} />
 
       {/* Top Header */}
@@ -130,7 +138,7 @@ export default function Home() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-2">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-2 pb-safe">
         {activeTab === 'now' && (
           <NowView
             partnerMood={partnerLatestMood}
@@ -139,6 +147,8 @@ export default function Home() {
             todayCount={todayCount}
             onOpenMoodModal={() => setIsMoodModalOpen(true)}
             onOpenFightModal={() => setIsFightModalOpen(true)}
+            onOpenNudgeModal={() => setIsNudgeModalOpen(true)}
+            onQuickNudge={(emoji, text) => sendQuickNudge({ emoji, text, count: 1 })}
           />
         )}
 
@@ -170,6 +180,13 @@ export default function Home() {
       {/* Bottom Navigation */}
       <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
 
+      {/* Floating Emojis & Realtime In-App Incoming Nudge Banner */}
+      <FloatingHearts
+        particles={particles}
+        incomingNudge={incomingNudge}
+        onDismissIncoming={() => setIncomingNudge(null)}
+      />
+
       {/* Modals */}
       <MoodModal
         isOpen={isMoodModalOpen}
@@ -181,6 +198,14 @@ export default function Home() {
         isOpen={isFightModalOpen}
         onClose={() => setIsFightModalOpen(false)}
         onSubmit={submitMood}
+      />
+
+      <NudgeModal
+        isOpen={isNudgeModalOpen}
+        onClose={() => setIsNudgeModalOpen(false)}
+        partnerName={partnerProfile?.name || 'সঙ্গী'}
+        onSendNudge={sendQuickNudge}
+        onTriggerFloatingHearts={triggerFloatingHearts}
       />
 
       <OnboardingModal

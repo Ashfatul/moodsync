@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, Sparkles, MessageCircleHeart } from 'lucide-react';
+import { AlertCircle, Sparkles, MessageCircleHeart, Heart } from 'lucide-react';
 import { MoodEventWithDetails, Profile } from '@/lib/types';
 import { MOODS, NEEDS, INTIMACY_MOODS, STRINGS_BN, formatTimeAgoBengali, toBengaliNumber } from '@/lib/constants/strings.bn';
 
@@ -11,6 +11,8 @@ interface NowViewProps {
   todayCount: number;
   onOpenMoodModal: () => void;
   onOpenFightModal: () => void;
+  onOpenNudgeModal: () => void;
+  onQuickNudge: (emoji: string, text: string) => void;
 }
 
 export default function NowView({
@@ -20,6 +22,8 @@ export default function NowView({
   todayCount,
   onOpenMoodModal,
   onOpenFightModal,
+  onOpenNudgeModal,
+  onQuickNudge,
 }: NowViewProps) {
   const getMoodDef = (moodId?: string | null) => MOODS.find((m) => m.id === moodId);
   const getNeedDef = (needId?: string | null) => NEEDS.find((n) => n.id === needId);
@@ -159,8 +163,48 @@ export default function NowView({
         )}
       </section>
 
+      {/* Quick Miss You & Love You Nudge Section */}
+      <section className="rounded-3xl border border-rose-200/80 dark:border-rose-900/60 bg-gradient-to-r from-rose-50/70 via-pink-50/40 to-rose-50/70 dark:from-rose-950/20 dark:via-pink-950/10 dark:to-rose-950/20 p-4 shadow-sm space-y-2.5">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-200">
+            <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 animate-pulse" />
+            <span>কুইক পিং ও মিস ইউ</span>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenNudgeModal}
+            className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 flex items-center gap-1 transition-all active:scale-95 px-2 py-0.5 rounded-full bg-white/70 dark:bg-stone-800/60 border border-rose-200/60 dark:border-rose-800/40 shadow-2xs"
+          >
+            <span>মিস ইউ বোম্ব 💣</span>
+          </button>
+        </div>
+
+        {/* 1-Tap Quick Action Chips */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { emoji: '🥺', text: 'মিস করছি' },
+            { emoji: '💖', text: 'ভালোবাসি' },
+            { emoji: '🫂', text: 'একটু আদর' },
+            { emoji: '💬', text: 'কথা বলো' },
+          ].map((chip) => (
+            <button
+              key={chip.text}
+              type="button"
+              onClick={() => onQuickNudge(chip.emoji, chip.text)}
+              className="py-2.5 px-1 rounded-2xl bg-white/90 dark:bg-stone-900/80 border border-rose-200/70 dark:border-rose-900/50 hover:border-rose-400 dark:hover:border-rose-600 active:scale-90 transition-all text-center shadow-xs"
+              title={`১ চাপে "${chip.text}" পাঠাও`}
+            >
+              <div className="text-xl select-none">{chip.emoji}</div>
+              <div className="text-[10px] font-bold text-rose-900 dark:text-rose-200 truncate mt-0.5">
+                {chip.text}
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Action Buttons */}
-      <div className="space-y-2.5 pt-2">
+      <div className="space-y-2.5 pt-1">
         {/* Main Mood Update Button */}
         <button
           onClick={onOpenMoodModal}

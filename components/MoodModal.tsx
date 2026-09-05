@@ -76,7 +76,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="w-full sm:max-w-md max-h-[92vh] flex flex-col bg-[var(--card)] rounded-t-3xl sm:rounded-3xl border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
+      <div className="w-full sm:max-w-md max-h-[92vh] max-h-[92dvh] flex flex-col bg-[var(--card)] rounded-t-3xl sm:rounded-3xl border border-[var(--card-border)] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
         {/* Modal Top Bar */}
         <div className="px-5 py-4 border-b border-[var(--card-border)] flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
         </div>
 
         {/* Content Area */}
-        <div className="p-6 overflow-y-auto max-h-[75vh]">
+        <div className="p-6 overflow-y-auto min-h-0 flex-1 max-h-[calc(92dvh-80px)] pb-safe">
           {/* STEP 1: এখন কেমন লাগছে? */}
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in duration-300">

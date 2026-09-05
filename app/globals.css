@@ -49,3 +49,59 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Safe area insets for modern mobile viewports, iPhone notch, & bottom home bar */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Mobile dynamic viewport height utilities with graceful fallback */
+@supports (min-height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+  .h-dvh {
+    height: 100dvh;
+  }
+  .max-h-dvh {
+    max-height: 100dvh;
+  }
+}
+@supports not (min-height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100vh;
+  }
+  .h-dvh {
+    height: 100vh;
+  }
+  .max-h-dvh {
+    max-height: 100vh;
+  }
+}
+
+/* Floating hearts & emoji animation for Miss You Bombs */
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.6) rotate(0deg);
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-100vh) scale(1.4) rotate(30deg);
+    opacity: 0;
+  }
+}
+
+.animate-float-heart {
+  animation: floatUp 2.8s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
+}
+
+
