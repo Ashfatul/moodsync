@@ -117,7 +117,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
         </div>
 
         {/* Content Area */}
-        <div className="p-6 overflow-y-auto min-h-0 flex-1 max-h-[calc(92dvh-80px)] pb-safe">
+        <div className="p-4 sm:p-6 overflow-y-auto min-h-0 flex-1 pb-10 sm:pb-6 pb-safe">
           {/* STEP 1: এখন কেমন লাগছে? */}
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in duration-300">

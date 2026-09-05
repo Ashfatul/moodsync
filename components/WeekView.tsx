@@ -11,7 +11,7 @@ interface WeekViewProps {
 
 export default function WeekView({ events }: WeekViewProps) {
   // Compute last 7 days summary
-  const { dayCards, moodCounts } = useMemo(() => {
+  const { dayCards, moodCounts, totalEvents } = useMemo(() => {
     const daysNameBn = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহস্পতি', 'শুক্র', 'শনি'];
     const now = new Date();
     const cards = [];
@@ -67,46 +67,53 @@ export default function WeekView({ events }: WeekViewProps) {
       })
       .sort((a, b) => b.count - a.count);
 
-    return { dayCards: cards, moodCounts: sortedCounts };
+    return { dayCards: cards, moodCounts: sortedCounts, totalEvents: eventsLast7Days.length };
   }, [events]);
 
   return (
-    <div className="space-y-4 pb-20 pt-2">
+    <div className="space-y-3 pb-20 pt-1">
       {/* Header */}
-      <div className="px-1">
-        <h2 className="text-xl font-bold text-[var(--foreground)]">
-          {STRINGS_BN.weekScreen.title}
-        </h2>
-        <p className="text-xs text-stone-600 dark:text-stone-300 mt-0.5">
-          {STRINGS_BN.weekScreen.subtitle}
-        </p>
+      <div className="px-1 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-[var(--foreground)]">
+            {STRINGS_BN.weekScreen.title}
+          </h2>
+          <p className="text-[11px] text-stone-500 dark:text-stone-400">
+            {STRINGS_BN.weekScreen.subtitle}
+          </p>
+        </div>
+        {totalEvents > 0 && (
+          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-0.5 rounded-full border border-rose-200/60 dark:border-rose-800/40">
+            {toBengaliNumber(totalEvents)}টি মুড রেকর্ড
+          </span>
+        )}
       </div>
 
       {/* 7-Day Horizontal Strip */}
-      <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm">
-        <div className="grid grid-cols-7 gap-1.5 text-center">
+      <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-2xs">
+        <div className="grid grid-cols-7 gap-1 text-center">
           {dayCards.map((card, idx) => (
             <div
               key={idx}
-              className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all ${
+              className={`flex flex-col items-center justify-center p-1.5 rounded-2xl transition-all ${
                 card.isToday
-                  ? 'bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800'
+                  ? 'bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 ring-1 ring-rose-400'
                   : 'bg-stone-50/70 dark:bg-stone-900/40 border border-stone-100 dark:border-stone-800/50'
               }`}
             >
               <span
-                className={`text-[11px] font-medium ${
+                className={`text-[10px] ${
                   card.isToday
                     ? 'text-rose-600 dark:text-rose-400 font-bold'
-                    : 'text-stone-500 dark:text-stone-400'
+                    : 'text-stone-500 dark:text-stone-400 font-medium'
                 }`}
               >
                 {card.dayName}
               </span>
-              <span className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
+              <span className="text-[9px] text-stone-400 dark:text-stone-500">
                 {toBengaliNumber(card.date)}
               </span>
-              <div className="mt-1.5 text-2xl select-none min-h-[32px] flex items-center justify-center">
+              <div className="mt-1 text-xl select-none min-h-[26px] flex items-center justify-center">
                 {card.emoji}
               </div>
             </div>
@@ -115,30 +122,30 @@ export default function WeekView({ events }: WeekViewProps) {
       </section>
 
       {/* Summary Proportions */}
-      <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-1.5">
-          <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+      <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xs space-y-2.5">
+        <h3 className="text-xs font-bold text-[var(--foreground)] flex items-center gap-1.5">
+          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
           {STRINGS_BN.weekScreen.summaryTitle}
         </h3>
 
         {moodCounts.length === 0 ? (
-          <p className="text-xs text-stone-600 dark:text-stone-300 py-4 text-center">
+          <p className="text-xs text-stone-500 dark:text-stone-400 py-3 text-center">
             {STRINGS_BN.weekScreen.noDataWeek}
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-1.5">
             {moodCounts.map((item) => (
               <div
                 key={item.moodId}
-                className="flex items-center justify-between p-3 rounded-2xl bg-stone-50 dark:bg-stone-900/50 border border-stone-100 dark:border-stone-800"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 dark:bg-stone-900/50 border border-stone-100 dark:border-stone-800/60"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-2xl select-none">{item.emoji}</span>
-                  <span className="text-sm font-medium text-[var(--foreground)]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl select-none">{item.emoji}</span>
+                  <span className="text-xs font-semibold text-[var(--foreground)]">
                     {item.name}
                   </span>
                 </div>
-                <div className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                <div className="text-xs font-bold text-rose-600 dark:text-rose-400">
                   {toBengaliNumber(item.count)} বার
                 </div>
               </div>
@@ -147,7 +154,7 @@ export default function WeekView({ events }: WeekViewProps) {
         )}
 
         <div className="pt-2 border-t border-[var(--card-border)]/70 text-center">
-          <p className="text-xs text-stone-600 dark:text-stone-300 font-medium leading-relaxed">
+          <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium leading-relaxed">
             {STRINGS_BN.weekScreen.calmMessage}
           </p>
         </div>

@@ -135,6 +135,9 @@ export default function Home() {
         isSyncing={isSyncing}
         partnerPresence={partnerPresence}
         partnerName={partnerProfile?.name}
+        partnerMood={partnerLatestMood}
+        myMood={myLatestMood}
+        onOpenMoodModal={() => setIsMoodModalOpen(true)}
       />
 
       {/* Main Content Area */}
