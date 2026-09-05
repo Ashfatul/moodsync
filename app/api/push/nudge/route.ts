@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { sendPushToPartner } from '@/lib/push';
 
 export async function POST(req: NextRequest) {
@@ -24,11 +25,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Fallback: verify token using admin client
+    if (!user && authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const adminSupabase = createAdminClient();
+      const { data, error } = await adminSupabase.auth.getUser(token);
+      if (!error && data?.user) {
+        user = data.user;
+      }
+    }
+
     if (!user) {
       return NextResponse.json({ error: 'অননুমোদিত অনুরোধ' }, { status: 401 });
     }
 
-    const { coupleId, text, emoji, count = 1, customMessage } = await req.json();
+    const { coupleId, text, emoji, count = 1, customMessage, url } = await req.json();
 
     if (!coupleId) {
       return NextResponse.json({ error: 'coupleId আবশ্যক' }, { status: 400 });
@@ -75,7 +86,7 @@ export async function POST(req: NextRequest) {
       title,
       body,
       tag,
-      url: '/',
+      url: url || '/',
     });
 
     return NextResponse.json(result);

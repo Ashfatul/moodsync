@@ -7,6 +7,7 @@ import { STRINGS_BN, FIGHT_MOMENTS } from '@/lib/constants/strings.bn';
 interface FightModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenLetsTalk?: () => void;
   onSubmit: (payload: {
     moodId: string;
     needId?: string | null;
@@ -18,6 +19,7 @@ interface FightModalProps {
 export default function FightModal({
   isOpen,
   onClose,
+  onOpenLetsTalk,
   onSubmit,
 }: FightModalProps) {
   const [selectedFightId, setSelectedFightId] = useState<string | null>(null);
@@ -149,6 +151,22 @@ export default function FightModal({
               className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-[var(--background)] text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
           </div>
+
+          {onOpenLetsTalk && (
+            <div className="pt-1 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenLetsTalk();
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/60 text-[11px] font-semibold text-violet-800 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/60 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span>👻</span>
+                <span>সরাসরি গোপন চ্যাটে কথা বলতে চাও? চলো কথা বলি 💬</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Sticky Action Footer with Safe Area */}

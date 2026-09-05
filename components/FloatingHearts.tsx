@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 
 export interface FloatingParticle {
   id: string;
@@ -17,6 +18,7 @@ export interface IncomingNudgeAlert {
   text: string;
   count: number;
   customMessage?: string;
+  url?: string;
 }
 
 interface FloatingHeartsProps {
@@ -81,6 +83,17 @@ export default function FloatingHearts({
                 <p className="text-xs text-stone-600 dark:text-stone-300 italic break-words leading-relaxed mt-0.5">
                   “{incomingNudge.customMessage}”
                 </p>
+              )}
+              {incomingNudge.url && (
+                <a
+                  href={incomingNudge.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all"
+                >
+                  <span>ঘোস্ট চ্যাটে যোগ দাও 👻</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               )}
             </div>
             <button

@@ -11,6 +11,7 @@ import SettingsView from '@/components/SettingsView';
 import MoodModal from '@/components/MoodModal';
 import FightModal from '@/components/FightModal';
 import NudgeModal from '@/components/NudgeModal';
+import LetsTalkModal from '@/components/LetsTalkModal';
 import FloatingHearts from '@/components/FloatingHearts';
 import AuthView from '@/components/AuthView';
 import PairingView from '@/components/PairingView';
@@ -52,6 +53,7 @@ export default function Home() {
   const [isMoodModalOpen, setIsMoodModalOpen] = useState(false);
   const [isFightModalOpen, setIsFightModalOpen] = useState(false);
   const [isNudgeModalOpen, setIsNudgeModalOpen] = useState(false);
+  const [isLetsTalkOpen, setIsLetsTalkOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   // Check if first-time visitor to show onboarding
@@ -164,6 +166,7 @@ export default function Home() {
             onOpenMoodModal={() => setIsMoodModalOpen(true)}
             onOpenFightModal={() => setIsFightModalOpen(true)}
             onOpenNudgeModal={() => setIsNudgeModalOpen(true)}
+            onOpenLetsTalk={() => setIsLetsTalkOpen(true)}
             onQuickNudge={(emoji, text) => sendQuickNudge({ emoji, text, count: 1 })}
           />
         )}
@@ -213,6 +216,7 @@ export default function Home() {
       <FightModal
         isOpen={isFightModalOpen}
         onClose={() => setIsFightModalOpen(false)}
+        onOpenLetsTalk={() => setIsLetsTalkOpen(true)}
         onSubmit={submitMood}
       />
 
@@ -221,6 +225,15 @@ export default function Home() {
         onClose={() => setIsNudgeModalOpen(false)}
         partnerName={partnerProfile?.name || 'সঙ্গী'}
         onSendNudge={sendQuickNudge}
+        onTriggerFloatingHearts={triggerFloatingHearts}
+      />
+
+      <LetsTalkModal
+        isOpen={isLetsTalkOpen}
+        onClose={() => setIsLetsTalkOpen(false)}
+        partnerName={partnerProfile?.name || 'সঙ্গী'}
+        coupleId={couple?.id}
+        onSendInvite={sendQuickNudge}
         onTriggerFloatingHearts={triggerFloatingHearts}
       />
 

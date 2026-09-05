@@ -517,9 +517,9 @@ export function useCoupleData() {
       .on(
         'broadcast',
         { event: 'quick_nudge' },
-        ({ payload }: { payload: { senderUserId?: string; senderName?: string; emoji?: string; text?: string; count?: number; customMessage?: string } }) => {
+        ({ payload }: { payload: { senderUserId?: string; senderName?: string; emoji?: string; text?: string; count?: number; customMessage?: string; url?: string } }) => {
           if (!payload) return;
-          const { senderUserId, senderName, emoji, text, count, customMessage } = payload;
+          const { senderUserId, senderName, emoji, text, count, customMessage, url } = payload;
           if (senderUserId !== user.id) {
             triggerFloatingHearts(emoji || '❤️', Math.min(count || 5, 20));
             setIncomingNudge({
@@ -528,6 +528,7 @@ export function useCoupleData() {
               text: text || 'মিস করছি',
               count: count || 1,
               customMessage,
+              url,
             });
           }
         }
@@ -888,12 +889,13 @@ export function useCoupleData() {
     URL.revokeObjectURL(url);
   };
 
-  // Send Quick Nudge / Miss You Bomb
+  // Send Quick Nudge / Miss You Bomb / Let's Talk
   const sendQuickNudge = async (payload: {
     emoji: string;
     text: string;
     count: number;
     customMessage?: string;
+    url?: string;
   }) => {
     if (!couple?.id || !user) return { success: false };
 
@@ -926,6 +928,7 @@ export function useCoupleData() {
             text: payload.text,
             count: payload.count,
             customMessage: payload.customMessage,
+            url: payload.url,
           },
         })
         .catch(() => {});
@@ -947,6 +950,7 @@ export function useCoupleData() {
           text: payload.text,
           count: payload.count,
           customMessage: payload.customMessage,
+          url: payload.url,
         }),
       }).catch((err) => console.warn('Nudge push error:', err));
     } catch {

@@ -637,6 +637,41 @@ export default function SettingsView({
         )}
       </section>
 
+      {/* Connected Secret Chat App: Ghost Message */}
+      <section className="rounded-3xl border border-violet-200/80 dark:border-violet-900/60 bg-gradient-to-r from-violet-50/50 to-purple-50/30 dark:from-violet-950/20 dark:to-purple-950/10 p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
+            <span className="text-base select-none">👻</span>
+            <span>সিক্রেট চ্যাট (Ghost Message)</span>
+          </h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60">
+            সংযুক্ত ✅
+          </span>
+        </div>
+
+        <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+          মুডসিঙ্কের সাথে যুক্ত এন্ড-টু-এন্ড এনক্রিপ্টেড ক্ষণস্থায়ী চ্যাট। হোমপেজের &apos;চলো কথা বলি&apos; চাপলে সরাসরি এই চ্যাটে যাওয়া যাবে।
+        </p>
+
+        <div className="p-3 rounded-2xl bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-stone-500 font-medium">চ্যাট লিঙ্ক:</span>
+            <span className="font-mono text-[11px] text-violet-600 dark:text-violet-400 font-semibold truncate max-w-[200px]">
+              ghost-message-13rh.onrender.com
+            </span>
+          </div>
+
+          <a
+            href="https://ghost-message-13rh.onrender.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-2"
+          >
+            <span>ঘোস্ট মেসেজ ওপেন করুন ↗️</span>
+          </a>
+        </div>
+      </section>
+
       {/* 3. Notifications Section */}
       <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm space-y-3">
         <h3 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
