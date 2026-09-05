@@ -22,6 +22,16 @@ async function getAuthenticatedUser(req: NextRequest) {
     }
   }
 
+  // Fallback: verify token using admin client in case of SSR cookie or RLS session mismatch
+  if (!user && authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase.auth.getUser(token);
+    if (!error && data?.user) {
+      user = data.user;
+    }
+  }
+
   return user;
 }
 

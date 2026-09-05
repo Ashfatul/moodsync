@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { sendPushToUser } from '@/lib/push';
 
 export async function POST(req: NextRequest) {
@@ -19,6 +20,16 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       const { data, error } = await supabase.auth.getUser();
+      if (!error && data?.user) {
+        user = data.user;
+      }
+    }
+
+    // Fallback: verify token using admin client
+    if (!user && authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const adminSupabase = createAdminClient();
+      const { data, error } = await adminSupabase.auth.getUser(token);
       if (!error && data?.user) {
         user = data.user;
       }

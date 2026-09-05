@@ -16,6 +16,9 @@ import {
   Send,
   Smartphone,
   AlertCircle,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Profile, Couple } from '@/lib/types';
 import { STRINGS_BN } from '@/lib/constants/strings.bn';
@@ -52,6 +55,14 @@ export default function SettingsView({
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedRetention, setSelectedRetention] = useState<number>(couple?.retention_days || 30);
+
+  // Password change state
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [prevProfileName, setPrevProfileName] = useState(profile?.name);
   if (profile?.name !== prevProfileName) {
@@ -162,6 +173,14 @@ export default function SettingsView({
     setPushMessage(null);
 
     try {
+      if (typeof window !== 'undefined' && !window.isSecureContext) {
+        throw new Error('ওয়েব পুশ নোটিফিকেশনের জন্য নিরাপদ সংযোগ (HTTPS বা localhost) প্রয়োজন।');
+      }
+
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        throw new Error('আপনার বর্তমান ব্রাউজার ওয়েব পুশ নোটিফিকেশন সাপোর্ট করে না।');
+      }
+
       const supabase = createClient();
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -170,9 +189,15 @@ export default function SettingsView({
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
+      // Ensure service worker is actively registered
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/sw.js');
+      }
+      await navigator.serviceWorker.ready;
+
       if (pushStatus === 'enabled') {
         // Unsubscribe
-        const registration = await navigator.serviceWorker.ready;
         const sub = await registration.pushManager.getSubscription();
         if (sub) {
           await fetch('/api/push/subscribe', {
@@ -186,24 +211,45 @@ export default function SettingsView({
         setPushMessage({ type: 'success', text: 'নোটিফিকেশন বন্ধ করা হয়েছে।' });
       } else {
         // Subscribe
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
+        if (Notification.permission === 'denied') {
           setPushStatus('disabled');
           setPushMessage({
             type: 'error',
-            text: 'ব্রাউজারে নোটিফিকেশনের অনুমতি দেওয়া হয়নি। অনুগ্রহ করে ব্রাউজার সেটিংসে গিয়ে অনুমতি দিন।',
+            text: 'ব্রাউজারে নোটিফিকেশন ব্লক করা আছে। অ্যাড্রেস বারের বাম পাশের লক (Lock) বা সাইট সেটিংসে গিয়ে Notifications: Allow করুন।',
           });
           setPushLoading(false);
           return;
         }
 
-        const registration = await navigator.serviceWorker.ready;
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          setPushStatus('disabled');
+          setPushMessage({
+            type: 'error',
+            text: 'ব্রাউজারে নোটিফিকেশনের অনুমতি দেওয়া হয়নি। অনুগ্রহ করে ব্রাউজার সাইট সেটিংসে গিয়ে Notifications Allow করুন।',
+          });
+          setPushLoading(false);
+          return;
+        }
+
         const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
         if (!vapidPublicKey) {
           setPushMessage({ type: 'error', text: 'VAPID Public Key কনফিগার করা নেই।' });
           setPushLoading(false);
           return;
+        }
+
+        // Clean up any stale/mismatched existing subscription before subscribing
+        // On desktop browsers (Chrome, Edge, Firefox), subscribing when an existing subscription
+        // with another key or in a stale state exists throws "Registration failed - push service error"
+        try {
+          const existingSub = await registration.pushManager.getSubscription();
+          if (existingSub) {
+            await existingSub.unsubscribe();
+          }
+        } catch (unsubErr) {
+          console.warn('Could not clear previous subscription:', unsubErr);
         }
 
         // Convert base64 url-safe VAPID to Uint8Array
@@ -218,10 +264,30 @@ export default function SettingsView({
           return outputArray;
         };
 
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
+        let subscription: PushSubscription;
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey.trim()),
+          });
+        } catch (subErr: unknown) {
+          console.error('PushManager subscribe error:', subErr);
+          const errMessage = subErr instanceof Error ? subErr.message : String(subErr);
+          const isBrave =
+            Boolean((navigator as unknown as { brave?: unknown })?.brave) ||
+            navigator.userAgent.toLowerCase().includes('brave');
+
+          if (
+            errMessage.includes('push service error') ||
+            (subErr as { name?: string })?.name === 'AbortError' ||
+            isBrave
+          ) {
+            throw new Error(
+              'ব্রাউজার পুশ সার্ভিস এরর: আপনি যদি Brave ব্রাউজার ব্যবহার করেন, brave://settings/privacy পেজে গিয়ে "Use Google services for push messaging" অন করে ব্রাউজার রিস্টার্ট দিন।'
+            );
+          }
+          throw subErr;
+        }
 
         // Send subscription to server
         const res = await fetch('/api/push/subscribe', {
@@ -306,6 +372,52 @@ export default function SettingsView({
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMessage(null);
+
+    if (!newPassword) {
+      setPasswordMessage({ type: 'error', text: 'নতুন পাসওয়ার্ড লিখুন।' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।' });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'উভয় পাসওয়ার্ড মিলছে না।' });
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setPasswordMessage({ type: 'success', text: 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!' });
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => {
+        setPasswordMessage(null);
+        setIsPasswordFormOpen(false);
+      }, 3000);
+    } catch (err: unknown) {
+      console.error('Change password failed:', err);
+      const msg = err instanceof Error ? err.message : 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে।';
+      setPasswordMessage({ type: 'error', text: msg });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4 pb-24 pt-2">
       {/* Header */}
@@ -344,6 +456,98 @@ export default function SettingsView({
             </div>
           </div>
         </form>
+      </section>
+
+      {/* Password Change Section */}
+      <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xs space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-[var(--foreground)] flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-rose-500" />
+            <span>পাসওয়ার্ড পরিবর্তন</span>
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              setIsPasswordFormOpen(!isPasswordFormOpen);
+              setPasswordMessage(null);
+            }}
+            className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline"
+          >
+            {isPasswordFormOpen ? 'বাতিল' : 'পরিবর্তন করুন'}
+          </button>
+        </div>
+
+        {isPasswordFormOpen && (
+          <form onSubmit={handleChangePassword} className="space-y-3 pt-1 animate-in fade-in duration-200">
+            <div>
+              <label className="block text-[11px] font-medium text-stone-600 dark:text-stone-400 mb-1">
+                নতুন পাসওয়ার্ড
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড"
+                  className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-0.5"
+                  aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                >
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-stone-600 dark:text-stone-400 mb-1">
+                নতুন পাসওয়ার্ড নিশ্চিত করুন
+              </label>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="পুনরায় পাসওয়ার্ড লিখুন"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 text-xs text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            {passwordMessage && (
+              <div
+                className={`p-2.5 rounded-xl text-xs font-medium flex items-center gap-1.5 ${
+                  passwordMessage.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+                }`}
+              >
+                {passwordMessage.type === 'success' ? (
+                  <Check className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                )}
+                <span>{passwordMessage.text}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="w-full py-2.5 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 active:scale-[0.98] disabled:opacity-50 text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-1.5"
+            >
+              {passwordLoading ? (
+                <span>আপডেট হচ্ছে...</span>
+              ) : (
+                <>
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>পাসওয়ার্ড আপডেট করুন</span>
+                </>
+              )}
+            </button>
+          </form>
+        )}
       </section>
 
       {/* 2. Partner Connection Section */}

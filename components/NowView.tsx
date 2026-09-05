@@ -71,12 +71,12 @@ export default function NowView({
             </div>
 
             {/* Mood Name */}
-            <h2 className="text-xl font-bold text-[var(--foreground)] tracking-tight">
+            <h2 className="text-xl font-bold text-[var(--foreground)] leading-snug">
               {partnerMoodDef.name}
             </h2>
 
             {/* Short Description */}
-            <p className="mt-0.5 text-xs text-stone-600 dark:text-stone-300 font-normal max-w-xs mx-auto leading-relaxed line-clamp-2">
+            <p className="mt-1 text-xs text-stone-600 dark:text-stone-300 font-normal max-w-xs mx-auto leading-relaxed">
               {partnerMoodDef.shortDesc}
             </p>
 
@@ -105,7 +105,7 @@ export default function NowView({
                   <MessageCircleHeart className="w-3 h-3 text-rose-400" />
                   {STRINGS_BN.nowScreen.noteLabel}
                 </p>
-                <p className="text-xs text-stone-700 dark:text-stone-200 italic leading-relaxed line-clamp-3">
+                <p className="text-xs text-stone-700 dark:text-stone-200 italic leading-relaxed break-words">
                   “{partnerMood.note}”
                 </p>
               </div>
@@ -158,7 +158,7 @@ export default function NowView({
               title={`১ চাপে "${chip.text}" পাঠাও`}
             >
               <div className="text-lg select-none">{chip.emoji}</div>
-              <div className="text-[10px] font-bold text-rose-900 dark:text-rose-200 truncate mt-0.5">
+              <div className="text-[10px] sm:text-[11px] font-bold text-rose-900 dark:text-rose-200 leading-normal mt-0.5 whitespace-nowrap">
                 {chip.text}
               </div>
             </button>
@@ -169,14 +169,14 @@ export default function NowView({
       {/* 3. Your Current Status & Instant Mood Update Bar (Compact UX) */}
       <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-2xs space-y-2">
         {/* Compact Mood Status Row */}
-        <div className="flex items-center justify-between px-1 text-xs">
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-1">
+        <div className="flex items-center justify-between px-1 text-xs gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 py-0.5">
+            <span className="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-1 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 inline-block" />
               {STRINGS_BN.nowScreen.you}:
             </span>
             {myMood && myMoodDef ? (
-              <span className="font-medium text-[var(--foreground)] truncate">
+              <span className="font-medium text-[var(--foreground)] truncate leading-normal">
                 {myMoodDef.emoji} {myMoodDef.name}
               </span>
             ) : (

@@ -122,7 +122,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <div className="text-center">
-                <h3 className="text-xl font-bold text-[var(--foreground)] tracking-tight">
+                <h3 className="text-xl font-bold text-[var(--foreground)] leading-snug">
                   {STRINGS_BN.questionFlow.step1Title}
                 </h3>
                 <p className="text-xs text-stone-600 dark:text-stone-300 mt-1">
@@ -148,10 +148,10 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
                       <span className="text-4xl select-none mb-1.5 transform transition-transform group-hover:scale-110">
                         {mood.emoji}
                       </span>
-                      <span className="text-sm font-bold text-[var(--foreground)]">
+                      <span className="text-sm font-bold text-[var(--foreground)] leading-snug">
                         {mood.name}
                       </span>
-                      <span className="text-[11px] text-stone-600 dark:text-stone-300 line-clamp-2 mt-0.5 leading-snug">
+                      <span className="text-[11px] text-stone-600 dark:text-stone-300 mt-0.5 leading-normal">
                         {mood.shortDesc}
                       </span>
                     </button>
@@ -171,7 +171,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
                     <span>{selectedMoodDef.name}</span>
                   </div>
                 )}
-                <h3 className="text-xl font-bold text-[var(--foreground)] tracking-tight">
+                <h3 className="text-xl font-bold text-[var(--foreground)] leading-snug">
                   {STRINGS_BN.questionFlow.step2Title}
                 </h3>
                 <p className="text-xs text-stone-600 dark:text-stone-300 mt-1">
@@ -195,10 +195,10 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
                     >
                       <span className="text-2xl select-none">{need.emoji}</span>
                       <div className="flex-1">
-                        <div className="text-sm font-bold text-[var(--foreground)]">
+                        <div className="text-sm font-bold text-[var(--foreground)] leading-snug">
                           {need.name}
                         </div>
-                        <div className="text-xs text-stone-600 dark:text-stone-300 line-clamp-1">
+                        <div className="text-xs text-stone-600 dark:text-stone-300 leading-normal">
                           {need.shortDesc}
                         </div>
                       </div>
@@ -223,7 +223,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
           {step === 3 && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <div className="text-center">
-                <h3 className="text-xl font-bold text-[var(--foreground)] tracking-tight">
+                <h3 className="text-xl font-bold text-[var(--foreground)] leading-snug">
                   {STRINGS_BN.questionFlow.step3Title}
                 </h3>
                 <p className="text-xs text-stone-600 dark:text-stone-300 mt-1">
@@ -247,10 +247,10 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
                     >
                       <span className="text-2xl select-none">{item.emoji}</span>
                       <div className="flex-1">
-                        <div className="text-sm font-bold text-[var(--foreground)]">
+                        <div className="text-sm font-bold text-[var(--foreground)] leading-snug">
                           {item.name}
                         </div>
-                        <div className="text-xs text-stone-600 dark:text-stone-300 line-clamp-1">
+                        <div className="text-xs text-stone-600 dark:text-stone-300 leading-normal">
                           {item.shortDesc}
                         </div>
                       </div>
@@ -275,7 +275,7 @@ export default function MoodModal({ isOpen, onClose, onSubmit }: MoodModalProps)
           {step === 4 && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <div className="text-center">
-                <h3 className="text-xl font-bold text-[var(--foreground)] tracking-tight">
+                <h3 className="text-xl font-bold text-[var(--foreground)] leading-snug">
                   {STRINGS_BN.questionFlow.step4Title}
                 </h3>
                 <p className="text-xs text-stone-600 dark:text-stone-300 mt-1">

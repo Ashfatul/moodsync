@@ -78,7 +78,7 @@ export default function FloatingHearts({
                 )}
               </div>
               {incomingNudge.customMessage && (
-                <p className="text-xs text-stone-600 dark:text-stone-300 italic truncate mt-0.5">
+                <p className="text-xs text-stone-600 dark:text-stone-300 italic break-words leading-relaxed mt-0.5">
                   “{incomingNudge.customMessage}”
                 </p>
               )}

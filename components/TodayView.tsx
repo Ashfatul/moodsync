@@ -100,11 +100,11 @@ export default function TodayView({ events, partnerProfile }: TodayViewProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-1.5">
-                        <h4 className="text-sm font-bold text-[var(--foreground)] truncate">
+                        <h4 className="text-sm font-bold text-[var(--foreground)] leading-snug">
                           {mood?.name || 'মুড'}
                         </h4>
                       </div>
-                      <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-1">
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed break-words">
                         {mood?.shortDesc}
                       </p>
 
@@ -130,7 +130,7 @@ export default function TodayView({ events, partnerProfile }: TodayViewProps) {
                       {event.note && (
                         <div className="mt-1.5 text-[11px] bg-stone-50 dark:bg-stone-900/60 p-2 rounded-xl text-stone-700 dark:text-stone-300 italic flex items-start gap-1">
                           <MessageSquare className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">“{event.note}”</span>
+                          <span className="leading-relaxed break-words">“{event.note}”</span>
                         </div>
                       )}
                     </div>

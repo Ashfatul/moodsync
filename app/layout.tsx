@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Hind_Siliguri } from "next/font/google";
+import { Anek_Bangla } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
-const hindSiliguri = Hind_Siliguri({
-  weight: ["300", "400", "500", "600", "700"],
+const anekBangla = Anek_Bangla({
+  weight: ["300", "400", "500", "600", "700", "800"],
   subsets: ["bengali", "latin"],
   display: "swap",
-  variable: "--font-hind-siliguri",
+  variable: "--font-anek-bangla",
 });
 
 export const viewport: Viewport = {
@@ -47,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="bn" className={`${hindSiliguri.variable} h-full`}>
+    <html lang="bn" className={`${anekBangla.variable} h-full`}>
       <body className="min-h-full flex flex-col font-sans antialiased bg-[var(--background)] text-[var(--foreground)] selection:bg-rose-100 selection:text-rose-900">
         <ServiceWorkerRegister />
         <PwaInstallPrompt />

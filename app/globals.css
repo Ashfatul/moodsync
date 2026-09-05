@@ -29,11 +29,17 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-hind-siliguri), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-anek-bangla), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  line-height: 1.6;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
 }
 
 /* Smooth transitions for mood and cards */

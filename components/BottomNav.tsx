@@ -39,7 +39,7 @@ export default function BottomNav({ activeTab, onChangeTab }: BottomNavProps) {
                 <span className="absolute top-0 w-8 h-1 rounded-b-full bg-rose-500 dark:bg-rose-400" />
               )}
               <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`} />
-              <span className="text-xs tracking-tight">{item.label}</span>
+              <span className="text-xs leading-normal">{item.label}</span>
             </button>
           );
         })}

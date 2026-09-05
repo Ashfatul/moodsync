@@ -129,10 +129,10 @@ export default function FightModal({
                   }`}
                 >
                   <span className="text-xl select-none">{moment.emoji}</span>
-                  <div className="text-xs font-bold text-[var(--foreground)] mt-0.5">
+                  <div className="text-xs font-bold text-[var(--foreground)] mt-0.5 leading-snug">
                     {moment.name}
                   </div>
-                  <div className="text-[10px] text-stone-500 dark:text-stone-400 line-clamp-1 mt-0.5">
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400 leading-normal break-words mt-0.5">
                     {moment.shortDesc}
                   </div>
                 </button>

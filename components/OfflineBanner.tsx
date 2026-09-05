@@ -14,7 +14,7 @@ export default function OfflineBanner({
   pendingSyncCount = 0,
   isSyncing = false,
 }: OfflineBannerProps) {
-  if (isOnline && pendingSyncCount === 0) return null;
+  if (isOnline) return null;
 
   return (
     <aside
