@@ -28,6 +28,7 @@ interface SettingsViewProps {
   profile: Profile | null;
   couple: Couple | null;
   partnerProfile: Profile | null;
+  onOpenLetsTalk?: () => void;
   onUpdateName: (name: string) => Promise<void>;
   onUpdateRetention: (days: number) => Promise<void>;
   onExportData: () => void;
@@ -39,6 +40,7 @@ export default function SettingsView({
   profile,
   couple,
   partnerProfile,
+  onOpenLetsTalk,
   onUpdateName,
   onUpdateRetention,
   onExportData,
@@ -661,14 +663,26 @@ export default function SettingsView({
             </span>
           </div>
 
-          <a
-            href="https://ghost-message-13rh.onrender.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-2"
-          >
-            <span>ঘোস্ট মেসেজ ওপেন করুন ↗️</span>
-          </a>
+          <div className="flex flex-col gap-2 pt-1">
+            {onOpenLetsTalk && (
+              <button
+                type="button"
+                onClick={onOpenLetsTalk}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 active:scale-[0.98] text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-2"
+              >
+                <span>সঙ্গীকে নোটিফাই করে চ্যাট খুলুন 🚀</span>
+              </button>
+            )}
+
+            <a
+              href="https://ghost-message-13rh.onrender.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2 px-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 hover:bg-stone-100 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+            >
+              <span>সরাসরি ওপেন করুন (নোটিফিকেশন ছাড়া) ↗️</span>
+            </a>
+          </div>
         </div>
       </section>
 

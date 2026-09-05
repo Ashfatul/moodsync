@@ -9,6 +9,7 @@ import {
   Shield,
   Settings2,
   Check,
+  Bell,
 } from 'lucide-react';
 
 const DEFAULT_GHOST_APP_URL = 'https://ghost-message-13rh.onrender.com/';
@@ -46,6 +47,7 @@ export default function LetsTalkModal({
   const [selectedPreset, setSelectedPreset] = useState<string>(PRESET_MESSAGES[0]);
   const [customText, setCustomText] = useState<string>('');
   const [ghostUrl, setGhostUrl] = useState<string>(DEFAULT_GHOST_APP_URL);
+  const [notifyPartner, setNotifyPartner] = useState<boolean>(true);
   const [isCustomizingUrl, setIsCustomizingUrl] = useState<boolean>(false);
   const [urlSaved, setUrlSaved] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -73,33 +75,34 @@ export default function LetsTalkModal({
     setIsCustomizingUrl(false);
   };
 
-  const handleSendAndOpen = async () => {
+  const handleOpenGhostChat = async () => {
     if (isSending) return;
-    setIsSending(true);
-
-    const messageToSend = customText.trim() || selectedPreset;
     const targetUrl = ghostUrl.trim() || DEFAULT_GHOST_APP_URL;
 
-    try {
-      await onSendInvite({
-        emoji: '💬',
-        text: 'চলো কথা বলি',
-        count: 1,
-        customMessage: messageToSend,
-        url: targetUrl,
-      });
-
-      onTriggerFloatingHearts?.('💬', 6);
-
-      // Open Ghost Message app in new tab
-      if (typeof window !== 'undefined') {
-        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    if (notifyPartner) {
+      setIsSending(true);
+      const messageToSend = customText.trim() || selectedPreset;
+      try {
+        await onSendInvite({
+          emoji: '💬',
+          text: 'চলো কথা বলি',
+          count: 1,
+          customMessage: messageToSend,
+          url: targetUrl,
+        });
+        onTriggerFloatingHearts?.('💬', 6);
+      } catch (err) {
+        console.warn('Nudge push error:', err);
+      } finally {
+        setIsSending(false);
       }
-
-      onClose();
-    } finally {
-      setIsSending(false);
     }
+
+    if (typeof window !== 'undefined') {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    onClose();
   };
 
   const handleDirectOpen = () => {
@@ -200,6 +203,39 @@ export default function LetsTalkModal({
             />
           </div>
 
+          {/* Notify Partner Toggle Card */}
+          <div
+            onClick={() => setNotifyPartner(!notifyPartner)}
+            className="p-3 rounded-2xl border border-violet-200/90 dark:border-violet-900/60 bg-gradient-to-r from-violet-50/80 to-purple-50/50 dark:from-violet-950/40 dark:to-purple-950/20 flex items-center justify-between gap-3 cursor-pointer select-none transition-all active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-violet-200/80 dark:bg-violet-900/60 flex items-center justify-center text-violet-700 dark:text-violet-300 shrink-0 shadow-2xs">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-violet-950 dark:text-violet-100 leading-snug">
+                  মেসেজে যাওয়ার সময় সঙ্গীকে নোটিফিকেশন পাঠাও
+                </p>
+                <p className="text-[10px] text-stone-500 dark:text-stone-400 leading-tight mt-0.5">
+                  {notifyPartner
+                    ? 'সঙ্গীর ফোনে নোটিফিকেশন যাবে, যাতে উনি ক্লিক করে সাথে সাথে চ্যাটে আসতে পারেন'
+                    : 'কোনো নোটিফিকেশন পাঠানো হবে না, শুধু আপনার জন্য চ্যাট খুলবে'}
+                </p>
+              </div>
+            </div>
+            <div
+              className={`w-11 h-6 rounded-full transition-colors relative shrink-0 p-0.5 ${
+                notifyPartner ? 'bg-violet-600' : 'bg-stone-300 dark:bg-stone-700'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform ${
+                  notifyPartner ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </div>
+          </div>
+
           {/* Connected App Status & Security Pill */}
           <div className="p-3 rounded-2xl border border-stone-200/80 dark:border-stone-800/80 bg-stone-50/60 dark:bg-stone-900/40 text-left space-y-1.5">
             <div className="flex items-center justify-between">
@@ -268,32 +304,39 @@ export default function LetsTalkModal({
 
         {/* Sticky Action Footer */}
         <div className="p-4 pt-2 pb-8 sm:pb-4 border-t border-[var(--card-border)] bg-[var(--card)] shrink-0 space-y-2">
-          {/* Main Action: Send Invite & Open */}
+          {/* Main Action: Open with or without Notification based on toggle */}
           <button
             type="button"
-            onClick={handleSendAndOpen}
+            onClick={handleOpenGhostChat}
             disabled={isSending}
             className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 active:scale-[0.98] disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2"
           >
             {isSending ? (
-              <span>পাঠানো হচ্ছে...</span>
-            ) : (
+              <span>নোটিফিকেশন পাঠানো হচ্ছে...</span>
+            ) : notifyPartner ? (
               <>
                 <Send className="w-4 h-4" />
-                <span>সঙ্গীকে ডাকো ও ঘোস্ট মেসেজ ওপেন করো 🚀</span>
+                <span>সঙ্গীকে নোটিফাই করে মেসেজ ওপেন করো 🚀</span>
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4" />
+                <span>ঘোস্ট মেসেজ ওপেন করো ↗️</span>
               </>
             )}
           </button>
 
-          {/* Secondary Action: Directly Open */}
-          <button
-            type="button"
-            onClick={handleDirectOpen}
-            className="w-full py-2.5 px-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-[var(--background)] hover:bg-stone-50 dark:hover:bg-stone-900 active:scale-[0.98] text-stone-700 dark:text-stone-300 font-semibold text-xs transition-all flex items-center justify-center gap-1.5"
-          >
-            <span>সরাসরি ঘোস্ট মেসেজে যাও (নোটিফিকেশন ছাড়া)</span>
-            <ExternalLink className="w-3 h-3 text-stone-400" />
-          </button>
+          {/* Quick Silent Alternative if notifyPartner is ON */}
+          {notifyPartner && (
+            <button
+              type="button"
+              onClick={handleDirectOpen}
+              className="w-full py-2.5 px-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-[var(--background)] hover:bg-stone-50 dark:hover:bg-stone-900 active:scale-[0.98] text-stone-600 dark:text-stone-300 font-semibold text-xs transition-all flex items-center justify-center gap-1.5"
+            >
+              <span>সরাসরি যাও (নোটিফিকেশন ছাড়া)</span>
+              <ExternalLink className="w-3 h-3 text-stone-400" />
+            </button>
+          )}
         </div>
       </div>
     </div>

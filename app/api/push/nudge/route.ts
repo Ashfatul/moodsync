@@ -68,15 +68,20 @@ export async function POST(req: NextRequest) {
     const nudgeEmoji = emoji || '❤️';
     const nudgeText = text || 'মিস করছি';
 
+    const isChatInvite = nudgeText.includes('কথা বলি') || Boolean(url && url.includes('ghost-message'));
     let title = `${senderName}: ${nudgeEmoji} ${nudgeText}`;
     if (count > 1) {
       title += ` (x${count} বোম্ব! 💣)`;
+    } else if (isChatInvite && !title.includes('👻')) {
+      title += ' 👻';
     }
 
     const body = customMessage?.trim()
       ? `"${customMessage.trim().slice(0, 80)}"`
       : count > 1
       ? `তোমাকে অনেক অনেক বেশি ${nudgeText}! ❤️`
+      : isChatInvite
+      ? `আমি ঘোস্ট মেসেজে আছি, ক্লিক করে চ্যাটে আসো! 👻`
       : `তোমাকে এখন খুব মনে পড়ছে... ❤️`;
 
     // Unique tag per timestamp so rapid multiple pushes arrive without replacing previous ones

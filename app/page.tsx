@@ -187,6 +187,7 @@ export default function Home() {
             profile={profile}
             couple={couple}
             partnerProfile={partnerProfile}
+            onOpenLetsTalk={() => setIsLetsTalkOpen(true)}
             onUpdateName={updateProfileName}
             onUpdateRetention={updateRetentionDays}
             onExportData={exportData}
