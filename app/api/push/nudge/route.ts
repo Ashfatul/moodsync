@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendPushToPartner } from '@/lib/push';
+import { DEFAULT_GHOST_APP_URL } from '@/lib/constants/strings.bn';
 
 export async function POST(req: NextRequest) {
   try {
@@ -87,11 +88,13 @@ export async function POST(req: NextRequest) {
     // Unique tag per timestamp so rapid multiple pushes arrive without replacing previous ones
     const tag = `nudge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
+    const targetUrl = isChatInvite ? (url || DEFAULT_GHOST_APP_URL) : (url || '/');
+
     const result = await sendPushToPartner(coupleId, user.id, {
       title,
       body,
       tag,
-      url: url || '/',
+      url: targetUrl,
     });
 
     return NextResponse.json(result);

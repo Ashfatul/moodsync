@@ -1,4 +1,5 @@
 import content from '@/config/content.json';
+import { QuickMessagePayload } from '@/lib/types';
 
 export interface MoodItem {
   id: string;
@@ -51,6 +52,38 @@ export const STRINGS_BN = {
 
 export const CONTENT = content;
 
+export const DEFAULT_GHOST_APP_URL =
+  'https://ghost-message-13rh.onrender.com/room/17cdveb7qndie4eq#BhIhu3h3Zy489uDfkuiCyYEbXKeFDBBiDupYhrLxKQI';
+
+export function isQuickMessage(event: { mood_id?: string | null; note?: string | null }): boolean {
+  if (event.mood_id) return false;
+  if (!event.note) return false;
+  try {
+    const parsed = JSON.parse(event.note);
+    return Boolean(parsed && parsed.type === 'quick_message');
+  } catch {
+    return false;
+  }
+}
+
+export function parseQuickMessage(event: { note?: string | null }): QuickMessagePayload | null {
+  if (!event.note) return null;
+  try {
+    const parsed = JSON.parse(event.note);
+    if (parsed && parsed.type === 'quick_message') {
+      return {
+        type: 'quick_message',
+        emoji: parsed.emoji || '❤️',
+        text: parsed.text || 'মেসেজ',
+        count: typeof parsed.count === 'number' ? parsed.count : 1,
+        customMessage: parsed.customMessage || null,
+        url: parsed.url || null,
+      };
+    }
+  } catch {}
+  return null;
+}
+
 export function toBengaliNumber(num: number | string): string {
   const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
   return num
@@ -87,3 +120,42 @@ export function formatTimeBengali(dateInput: string | Date): string {
   const minutes = date.getMinutes().toString().padStart(2, '0');
   return `${toBengaliNumber(hours)}:${toBengaliNumber(minutes)}`;
 }
+
+const BN_MONTHS = [
+  'জানুয়ারি',
+  'ফেব্রুয়ারি',
+  'মার্চ',
+  'এপ্রিল',
+  'মে',
+  'জুন',
+  'জুলাই',
+  'আগস্ট',
+  'সেপ্টেম্বর',
+  'অক্টোবর',
+  'নভেম্বর',
+  'ডিসেম্বর',
+];
+
+const BN_DAYS = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+
+export function formatDateBengali(dateInput: string | Date): string {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
+    return `আজ, ${toBengaliNumber(date.getDate())} ${BN_MONTHS[date.getMonth()]}`;
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `গতকাল, ${toBengaliNumber(date.getDate())} ${BN_MONTHS[date.getMonth()]}`;
+  }
+
+  const dayName = BN_DAYS[date.getDay()];
+  const day = toBengaliNumber(date.getDate());
+  const month = BN_MONTHS[date.getMonth()];
+  const year = toBengaliNumber(date.getFullYear());
+
+  return `${dayName}, ${day} ${month} ${year}`;
+}
+

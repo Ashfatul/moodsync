@@ -1,4 +1,4 @@
-const CACHE_NAME = 'moodsync-cache-v3';
+const CACHE_NAME = 'moodsync-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -119,17 +119,31 @@ self.addEventListener('push', (event) => {
     console.error('Push payload parse error:', err);
   }
 
+  const isChat = Boolean(
+    (data.url && data.url.includes('ghost-message')) ||
+    data.title?.includes('কথা বলি') ||
+    data.title?.includes('👻') ||
+    data.body?.includes('ঘোস্ট মেসেজ')
+  );
+
+  const defaultRoomUrl =
+    'https://ghost-message-13rh.onrender.com/room/17cdveb7qndie4eq#BhIhu3h3Zy489uDfkuiCyYEbXKeFDBBiDupYhrLxKQI';
+  const roomUrl = data.url && data.url.startsWith('http') ? data.url : defaultRoomUrl;
+
   const options = {
     body: data.body,
     icon: data.icon || '/icons/icon-192.png',
     badge: data.badge || '/icons/icon-192.png',
-    tag: data.tag || 'mood-update',
+    tag: data.tag || (isChat ? `chat-${Date.now()}` : 'mood-update'),
     renotify: true,
-    vibrate: [200, 100, 200],
+    vibrate: isChat ? [300, 100, 300, 100, 300] : [200, 100, 200],
     timestamp: Date.now(),
     data: {
       url: data.url || '/',
+      isChat,
+      roomUrl,
     },
+    actions: isChat ? [{ action: 'join_chat', title: 'চ্যাটে জয়েন করো 🚀' }] : [],
   };
 
   event.waitUntil(self.registration.showNotification(data.title, options));
@@ -138,17 +152,25 @@ self.addEventListener('push', (event) => {
 // Notification click event listener
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const notificationData = event.notification.data || {};
+  const isChat = Boolean(notificationData.isChat);
+  const defaultRoomUrl =
+    'https://ghost-message-13rh.onrender.com/room/17cdveb7qndie4eq#BhIhu3h3Zy489uDfkuiCyYEbXKeFDBBiDupYhrLxKQI';
+  const roomUrl = notificationData.roomUrl || defaultRoomUrl;
+  const targetAppUrl = isChat ? '/?openChat=1' : (notificationData.url?.startsWith('/') ? notificationData.url : '/');
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if (isChat) {
+            client.postMessage({ type: 'OPEN_GHOST_CHAT', roomUrl });
+          }
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(targetAppUrl);
       }
     })
   );

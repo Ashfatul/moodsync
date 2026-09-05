@@ -32,11 +32,11 @@ export default function WeekView({ events }: WeekViewProps) {
         (e) => new Date(e.created_at).toDateString() === dateStr
       );
 
-      // Find the most frequent or latest mood for that day
+      // Find the latest mood for that day (skipping quick messages)
       let dominantEmoji = '—';
-      if (dayEvents.length > 0) {
-        const latestMoodId = dayEvents[0].mood_id;
-        const moodDef = MOODS.find((m) => m.id === latestMoodId);
+      const latestMoodEvt = dayEvents.find((e) => Boolean(e.mood_id));
+      if (latestMoodEvt && latestMoodEvt.mood_id) {
+        const moodDef = MOODS.find((m) => m.id === latestMoodEvt.mood_id);
         if (moodDef) dominantEmoji = moodDef.emoji;
       }
 
@@ -52,7 +52,9 @@ export default function WeekView({ events }: WeekViewProps) {
     // Count frequency of moods in the last 7 days
     const countsMap: Record<string, number> = {};
     eventsLast7Days.forEach((e) => {
-      countsMap[e.mood_id] = (countsMap[e.mood_id] || 0) + 1;
+      if (e.mood_id) {
+        countsMap[e.mood_id] = (countsMap[e.mood_id] || 0) + 1;
+      }
     });
 
     const sortedCounts = Object.entries(countsMap)

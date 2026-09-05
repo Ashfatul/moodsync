@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { Profile, Couple, MoodEvent, MoodEventWithDetails, UserPresenceState } from '@/lib/types';
-import { MOODS, NEEDS, STRINGS_BN } from '@/lib/constants/strings.bn';
+import { MOODS, NEEDS, STRINGS_BN, DEFAULT_GHOST_APP_URL, parseQuickMessage, isQuickMessage } from '@/lib/constants/strings.bn';
 import { FloatingParticle, IncomingNudgeAlert } from '@/components/FloatingHearts';
 
 interface QueuedMoodEvent {
@@ -99,7 +99,7 @@ export function useCoupleData() {
           .select('*')
           .eq('couple_id', cId)
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(250);
 
         if (error) {
           console.error('Error fetching mood events:', error);
@@ -113,6 +113,7 @@ export function useCoupleData() {
               ...evt,
               isCurrentUser: isMe,
               authorName: isMe ? STRINGS_BN.nowScreen.you : (pProfile?.name || 'সঙ্গী'),
+              quickMessage: parseQuickMessage(evt),
             };
           });
 
@@ -127,7 +128,7 @@ export function useCoupleData() {
                   id: q.tempId,
                   couple_id: q.coupleId,
                   user_id: q.userId,
-                  mood_id: q.moodId,
+                  mood_id: q.moodId || null,
                   need_id: q.needId || null,
                   intimacy_mood_id: q.intimacyMoodId || null,
                   note: q.note || null,
@@ -135,6 +136,7 @@ export function useCoupleData() {
                   isCurrentUser: true,
                   authorName: STRINGS_BN.nowScreen.you,
                   isOfflinePending: true,
+                  quickMessage: parseQuickMessage({ note: q.note }),
                 }));
                 finalEvents = [...queuedDetails, ...enriched];
               }
@@ -190,7 +192,7 @@ export function useCoupleData() {
           .insert({
             couple_id: item.coupleId,
             user_id: item.userId,
-            mood_id: item.moodId,
+            mood_id: item.moodId || null,
             need_id: item.needId || null,
             intimacy_mood_id: item.intimacyMoodId || null,
             note: item.note || null,
@@ -899,18 +901,105 @@ export function useCoupleData() {
   }) => {
     if (!couple?.id || !user) return { success: false };
 
-    // If offline, notify user gently
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      return {
-        success: false,
-        error: 'ইন্টারনেট সংযোগ নেই। অনলাইনে এলে পিং পাঠানো যাবে।',
-      };
-    }
-
-    // 1. Locally spawn floating emojis
+    // 1. Locally spawn floating emojis immediately
     triggerFloatingHearts(payload.emoji, Math.min(payload.count, 20));
 
-    // 2. Broadcast via Supabase Realtime channel
+    const nowIso = new Date().toISOString();
+    const tempId = `quick-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const notePayload = JSON.stringify({
+      type: 'quick_message',
+      emoji: payload.emoji,
+      text: payload.text,
+      count: payload.count,
+      customMessage: payload.customMessage || null,
+      url: payload.url || null,
+    });
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    // 2. Optimistically add to moodEvents state and localStorage history
+    const optimisticEvent: MoodEventWithDetails = {
+      id: tempId,
+      couple_id: couple.id,
+      user_id: user.id,
+      mood_id: null,
+      need_id: null,
+      intimacy_mood_id: null,
+      note: notePayload,
+      created_at: nowIso,
+      isCurrentUser: true,
+      authorName: STRINGS_BN.nowScreen.you,
+      isOfflinePending: isOffline,
+      quickMessage: {
+        type: 'quick_message',
+        emoji: payload.emoji,
+        text: payload.text,
+        count: payload.count,
+        customMessage: payload.customMessage || null,
+        url: payload.url || null,
+      },
+    };
+
+    setMoodEvents((prev) => {
+      const next = [optimisticEvent, ...prev];
+      try {
+        localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    if (isOffline) {
+      queueOfflineMood({
+        tempId,
+        coupleId: couple.id,
+        userId: user.id,
+        moodId: '',
+        note: notePayload,
+        createdAt: nowIso,
+      });
+      return { success: true, isOffline: true };
+    }
+
+    // 3. Persist to Supabase mood_events table
+    try {
+      const { data: inserted, error: dbErr } = await supabase
+        .from('mood_events')
+        .insert({
+          couple_id: couple.id,
+          user_id: user.id,
+          mood_id: null,
+          note: notePayload,
+          created_at: nowIso,
+        })
+        .select()
+        .single();
+
+      if (inserted && !dbErr) {
+        setMoodEvents((prev) => {
+          const next = prev.map((e) =>
+            e.id === tempId ? { ...e, id: inserted.id, isOfflinePending: false } : e
+          );
+          try {
+            localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      } else if (dbErr) {
+        console.warn('DB quick message insert failed, queueing offline:', dbErr);
+        queueOfflineMood({
+          tempId,
+          coupleId: couple.id,
+          userId: user.id,
+          moodId: '',
+          note: notePayload,
+          createdAt: nowIso,
+        });
+      }
+    } catch (err) {
+      console.warn('Quick message error:', err);
+    }
+
+    // 4. Broadcast via Supabase Realtime channel
     const channelName = `couple-realtime-${couple.id}`;
     const channels = supabase.getChannels();
     const activeChannel = channels.find(
@@ -934,7 +1023,7 @@ export function useCoupleData() {
         .catch(() => {});
     }
 
-    // 3. Send Web Push to partner's phone
+    // 5. Send Web Push to partner's phone
     try {
       const { data: sData } = await supabase.auth.getSession();
       const token = sData.session?.access_token;
@@ -977,9 +1066,30 @@ export function useCoupleData() {
     setPendingSyncCount(0);
   };
 
-  // Derive partner's latest mood and current user's latest mood
-  const myLatestMood = moodEvents.find((e) => e.isCurrentUser) || null;
-  const partnerLatestMood = moodEvents.find((e) => !e.isCurrentUser) || null;
+  // Derive partner's latest mood and current user's latest mood (strictly mood events with mood_id)
+  const myLatestMood = moodEvents.find((e) => e.isCurrentUser && Boolean(e.mood_id)) || null;
+  const partnerLatestMood = moodEvents.find((e) => !e.isCurrentUser && Boolean(e.mood_id)) || null;
+
+  // Derive recent active chat invitation from partner (within 2 hours)
+  const partnerChatInvite = moodEvents.find((e) => {
+    if (e.isCurrentUser || e.mood_id) return false;
+    const qm = parseQuickMessage(e);
+    if (!qm) return false;
+    const isChat = Boolean(qm.url || qm.text.includes('কথা') || qm.customMessage?.includes('চ্যাট'));
+    if (!isChat) return false;
+    const diffMs = Date.now() - new Date(e.created_at).getTime();
+    return diffMs < 2 * 60 * 60 * 1000; // within 2 hours
+  });
+
+  const activeChatInvite = partnerChatInvite
+    ? {
+        eventId: partnerChatInvite.id,
+        senderName: partnerProfile?.name || 'সঙ্গী',
+        url: parseQuickMessage(partnerChatInvite)?.url || DEFAULT_GHOST_APP_URL,
+        message: parseQuickMessage(partnerChatInvite)?.customMessage || 'চলো একটু গল্প করি 💬',
+        time: partnerChatInvite.created_at,
+      }
+    : null;
 
   return {
     supabase,
@@ -990,6 +1100,7 @@ export function useCoupleData() {
     moodEvents,
     myLatestMood,
     partnerLatestMood,
+    activeChatInvite,
     loading,
     isOnline,
     isSyncing,

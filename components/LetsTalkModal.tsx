@@ -10,9 +10,9 @@ import {
   Settings2,
   Check,
   Bell,
+  Sparkles,
 } from 'lucide-react';
-
-const DEFAULT_GHOST_APP_URL = 'https://ghost-message-13rh.onrender.com/';
+import { DEFAULT_GHOST_APP_URL } from '@/lib/constants/strings.bn';
 
 const PRESET_MESSAGES = [
   'একটু কথা বলো না, ফ্রি আছো? 💬',
@@ -34,6 +34,7 @@ interface LetsTalkModalProps {
     url?: string;
   }) => Promise<any>;
   onTriggerFloatingHearts?: (emoji: string, count: number) => void;
+  onOpenInAppChat?: (url: string) => void;
 }
 
 export default function LetsTalkModal({
@@ -43,6 +44,7 @@ export default function LetsTalkModal({
   coupleId,
   onSendInvite,
   onTriggerFloatingHearts,
+  onOpenInAppChat,
 }: LetsTalkModalProps) {
   const [selectedPreset, setSelectedPreset] = useState<string>(PRESET_MESSAGES[0]);
   const [customText, setCustomText] = useState<string>('');
@@ -52,13 +54,20 @@ export default function LetsTalkModal({
   const [urlSaved, setUrlSaved] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
 
-  // Load custom room URL from localStorage if set
+  // Load custom room URL from localStorage if set (migrate old generic root url to default room)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const storageKey = `moodsync_ghost_chat_url_${coupleId || 'default'}`;
     const saved = localStorage.getItem(storageKey);
-    if (saved && saved.trim()) {
+    if (
+      saved &&
+      saved.trim() &&
+      saved.trim() !== 'https://ghost-message-13rh.onrender.com/' &&
+      saved.trim() !== 'https://ghost-message-13rh.onrender.com'
+    ) {
       setGhostUrl(saved.trim());
+    } else {
+      setGhostUrl(DEFAULT_GHOST_APP_URL);
     }
   }, [coupleId]);
 
@@ -98,19 +107,24 @@ export default function LetsTalkModal({
       }
     }
 
-    if (typeof window !== 'undefined') {
+    onClose();
+
+    if (onOpenInAppChat) {
+      onOpenInAppChat(targetUrl);
+    } else if (typeof window !== 'undefined') {
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
     }
-
-    onClose();
   };
 
   const handleDirectOpen = () => {
     const targetUrl = ghostUrl.trim() || DEFAULT_GHOST_APP_URL;
-    if (typeof window !== 'undefined') {
+    onClose();
+
+    if (onOpenInAppChat) {
+      onOpenInAppChat(targetUrl);
+    } else if (typeof window !== 'undefined') {
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
     }
-    onClose();
   };
 
   return (

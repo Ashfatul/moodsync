@@ -13,7 +13,7 @@ interface BottomNavProps {
 export default function BottomNav({ activeTab, onChangeTab }: BottomNavProps) {
   const navItems: { id: TabType; label: string; icon: typeof Sparkles }[] = [
     { id: 'now', label: STRINGS_BN.tabs.now, icon: Sparkles },
-    { id: 'today', label: STRINGS_BN.tabs.today, icon: Calendar },
+    { id: 'today', label: 'টাইমলাইন', icon: Calendar },
     { id: 'week', label: STRINGS_BN.tabs.week, icon: BarChart3 },
     { id: 'settings', label: STRINGS_BN.tabs.settings, icon: Settings },
   ];

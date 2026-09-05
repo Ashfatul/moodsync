@@ -21,7 +21,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { Profile, Couple } from '@/lib/types';
-import { STRINGS_BN } from '@/lib/constants/strings.bn';
+import { STRINGS_BN, DEFAULT_GHOST_APP_URL } from '@/lib/constants/strings.bn';
 import { createClient } from '@/lib/supabase/client';
 
 interface SettingsViewProps {
@@ -29,6 +29,7 @@ interface SettingsViewProps {
   couple: Couple | null;
   partnerProfile: Profile | null;
   onOpenLetsTalk?: () => void;
+  onOpenInAppChat?: (url: string) => void;
   onUpdateName: (name: string) => Promise<void>;
   onUpdateRetention: (days: number) => Promise<void>;
   onExportData: () => void;
@@ -41,6 +42,7 @@ export default function SettingsView({
   couple,
   partnerProfile,
   onOpenLetsTalk,
+  onOpenInAppChat,
   onUpdateName,
   onUpdateRetention,
   onExportData,
@@ -56,7 +58,7 @@ export default function SettingsView({
   const [isInstalledApp, setIsInstalledApp] = useState(false);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [selectedRetention, setSelectedRetention] = useState<number>(couple?.retention_days || 30);
+  const [selectedRetention, setSelectedRetention] = useState<number>(couple?.retention_days || 7);
 
   // Password change state
   const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
@@ -75,7 +77,7 @@ export default function SettingsView({
   const [prevRetention, setPrevRetention] = useState(couple?.retention_days);
   if (couple?.retention_days !== prevRetention) {
     setPrevRetention(couple?.retention_days);
-    setSelectedRetention(couple?.retention_days || 30);
+    setSelectedRetention(couple?.retention_days || 7);
   }
 
   // Check current push notification permission and subscription
@@ -658,8 +660,8 @@ export default function SettingsView({
         <div className="p-3 rounded-2xl bg-white/80 dark:bg-stone-900/80 border border-stone-200 dark:border-stone-800 space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-stone-500 font-medium">চ্যাট লিঙ্ক:</span>
-            <span className="font-mono text-[11px] text-violet-600 dark:text-violet-400 font-semibold truncate max-w-[200px]">
-              ghost-message-13rh.onrender.com
+            <span className="font-mono text-[11px] text-violet-600 dark:text-violet-400 font-semibold truncate max-w-[200px]" title={DEFAULT_GHOST_APP_URL}>
+              ghost-message-13rh...
             </span>
           </div>
 
@@ -668,20 +670,30 @@ export default function SettingsView({
               <button
                 type="button"
                 onClick={onOpenLetsTalk}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 active:scale-[0.98] text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 active:scale-[0.98] text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>সঙ্গীকে নোটিফাই করে চ্যাট খুলুন 🚀</span>
               </button>
             )}
 
-            <a
-              href="https://ghost-message-13rh.onrender.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2 px-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 hover:bg-stone-100 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
-            >
-              <span>সরাসরি ওপেন করুন (নোটিফিকেশন ছাড়া) ↗️</span>
-            </a>
+            {onOpenInAppChat ? (
+              <button
+                type="button"
+                onClick={() => onOpenInAppChat(DEFAULT_GHOST_APP_URL)}
+                className="w-full py-2 px-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer"
+              >
+                <span>সরাসরি চ্যাট রুমে যাও (অ্যাপেই) 👻</span>
+              </button>
+            ) : (
+              <a
+                href={DEFAULT_GHOST_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2 px-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 hover:bg-stone-100 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+              >
+                <span>সরাসরি ওপেন করুন (নোটিফিকেশন ছাড়া) ↗️</span>
+              </a>
+            )}
           </div>
         </div>
       </section>

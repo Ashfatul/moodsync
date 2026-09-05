@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.couples (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invite_code TEXT UNIQUE,
   invite_expires_at TIMESTAMPTZ,
-  retention_days INTEGER NOT NULL DEFAULT 30 CHECK (retention_days IN (7, 14, 30)),
+  retention_days INTEGER NOT NULL DEFAULT 7 CHECK (retention_days IN (7, 14, 30)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -299,7 +299,7 @@ BEGIN
 
   -- Create couple (invite valid for 7 days)
   INSERT INTO public.couples (invite_code, invite_expires_at, retention_days)
-  VALUES (v_code, NOW() + INTERVAL '7 days', 30)
+  VALUES (v_code, NOW() + INTERVAL '7 days', 7)
   RETURNING id INTO v_couple_id;
 
   -- Add user as first couple member

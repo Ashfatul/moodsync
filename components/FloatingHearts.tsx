@@ -25,18 +25,22 @@ interface FloatingHeartsProps {
   particles: FloatingParticle[];
   incomingNudge: IncomingNudgeAlert | null;
   onDismissIncoming: () => void;
+  onOpenInAppChat?: (url: string) => void;
 }
 
 export default function FloatingHearts({
   particles,
   incomingNudge,
   onDismissIncoming,
+  onOpenInAppChat,
 }: FloatingHeartsProps) {
   useEffect(() => {
     if (!incomingNudge) return;
+    const isChat = Boolean(incomingNudge.url || incomingNudge.text.includes('কথা'));
+    const duration = isChat ? 12000 : 4500;
     const timer = setTimeout(() => {
       onDismissIncoming();
-    }, 4500);
+    }, duration);
     return () => clearTimeout(timer);
   }, [incomingNudge, onDismissIncoming]);
 
@@ -85,15 +89,30 @@ export default function FloatingHearts({
                 </p>
               )}
               {incomingNudge.url && (
-                <a
-                  href={incomingNudge.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all"
-                >
-                  <span>ঘোস্ট চ্যাটে যোগ দাও 👻</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                <div className="mt-2 flex items-center gap-2">
+                  {onOpenInAppChat ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (incomingNudge.url) onOpenInAppChat(incomingNudge.url);
+                        onDismissIncoming();
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+                    >
+                      <span>চ্যাটে জয়েন করো 🚀</span>
+                    </button>
+                  ) : (
+                    <a
+                      href={incomingNudge.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all"
+                    >
+                      <span>ঘোস্ট চ্যাটে যোগ দাও 👻</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
               )}
             </div>
             <button

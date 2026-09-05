@@ -21,11 +21,20 @@ export interface CoupleMember {
   profile?: Profile;
 }
 
+export interface QuickMessagePayload {
+  type?: 'quick_message';
+  emoji: string;
+  text: string;
+  count: number;
+  customMessage?: string | null;
+  url?: string | null;
+}
+
 export interface MoodEvent {
   id: string;
   couple_id: string;
   user_id: string;
-  mood_id: string;
+  mood_id?: string | null;
   need_id?: string | null;
   intimacy_mood_id?: string | null;
   note?: string | null;
@@ -36,6 +45,7 @@ export interface MoodEventWithDetails extends MoodEvent {
   authorName?: string;
   isCurrentUser?: boolean;
   isOfflinePending?: boolean;
+  quickMessage?: QuickMessagePayload | null;
 }
 
 export interface PushSubscriptionData {

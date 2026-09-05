@@ -17,6 +17,8 @@ import AuthView from '@/components/AuthView';
 import PairingView from '@/components/PairingView';
 import OnboardingModal from '@/components/OnboardingModal';
 import OfflineBanner from '@/components/OfflineBanner';
+import InAppChatModal from '@/components/InAppChatModal';
+import { DEFAULT_GHOST_APP_URL } from '@/lib/constants/strings.bn';
 import { Heart } from 'lucide-react';
 
 export default function Home() {
@@ -28,6 +30,7 @@ export default function Home() {
     moodEvents,
     myLatestMood,
     partnerLatestMood,
+    activeChatInvite,
     loading,
     isOnline,
     isSyncing,
@@ -56,7 +59,16 @@ export default function Home() {
   const [isLetsTalkOpen, setIsLetsTalkOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
-  // Check if first-time visitor to show onboarding
+  // In-App Chat Modal state
+  const [isInAppChatOpen, setIsInAppChatOpen] = useState(false);
+  const [chatRoomUrl, setChatRoomUrl] = useState(DEFAULT_GHOST_APP_URL);
+
+  const handleOpenInAppChat = (url?: string) => {
+    if (url) setChatRoomUrl(url);
+    setIsInAppChatOpen(true);
+  };
+
+  // Check if first-time visitor to show onboarding, and check ?openChat=1 or sw messages
   useEffect(() => {
     queueMicrotask(() => {
       const hasSeenOnboarding = localStorage.getItem('moodsync_onboarding_seen');
@@ -64,6 +76,33 @@ export default function Home() {
         setIsOnboardingOpen(true);
       }
     });
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('openChat') === '1') {
+        setIsInAppChatOpen(true);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      const handleSwMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'OPEN_GHOST_CHAT') {
+          if (event.data.roomUrl) {
+            setChatRoomUrl(event.data.roomUrl);
+          }
+          setIsInAppChatOpen(true);
+        }
+      };
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', handleSwMessage);
+      }
+
+      return () => {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+        }
+      };
+    }
   }, []);
 
   const handleCompleteOnboarding = () => {
@@ -163,11 +202,14 @@ export default function Home() {
             myMood={myLatestMood}
             partnerProfile={partnerProfile}
             todayCount={todayCount}
+            activeChatInvite={activeChatInvite}
             onOpenMoodModal={() => setIsMoodModalOpen(true)}
             onOpenFightModal={() => setIsFightModalOpen(true)}
             onOpenNudgeModal={() => setIsNudgeModalOpen(true)}
             onOpenLetsTalk={() => setIsLetsTalkOpen(true)}
+            onOpenInAppChat={handleOpenInAppChat}
             onQuickNudge={(emoji, text) => sendQuickNudge({ emoji, text, count: 1 })}
+            onViewHistory={() => setActiveTab('today')}
           />
         )}
 
@@ -175,6 +217,7 @@ export default function Home() {
           <TodayView
             events={moodEvents}
             partnerProfile={partnerProfile}
+            onOpenInAppChat={handleOpenInAppChat}
           />
         )}
 
@@ -188,6 +231,7 @@ export default function Home() {
             couple={couple}
             partnerProfile={partnerProfile}
             onOpenLetsTalk={() => setIsLetsTalkOpen(true)}
+            onOpenInAppChat={handleOpenInAppChat}
             onUpdateName={updateProfileName}
             onUpdateRetention={updateRetentionDays}
             onExportData={exportData}
@@ -205,6 +249,7 @@ export default function Home() {
         particles={particles}
         incomingNudge={incomingNudge}
         onDismissIncoming={() => setIncomingNudge(null)}
+        onOpenInAppChat={handleOpenInAppChat}
       />
 
       {/* Modals */}
@@ -236,6 +281,14 @@ export default function Home() {
         coupleId={couple?.id}
         onSendInvite={sendQuickNudge}
         onTriggerFloatingHearts={triggerFloatingHearts}
+        onOpenInAppChat={handleOpenInAppChat}
+      />
+
+      <InAppChatModal
+        isOpen={isInAppChatOpen}
+        onClose={() => setIsInAppChatOpen(false)}
+        roomUrl={chatRoomUrl}
+        partnerName={partnerProfile?.name || 'সঙ্গী'}
       />
 
       <OnboardingModal
