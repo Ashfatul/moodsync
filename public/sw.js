@@ -1,4 +1,4 @@
-const CACHE_NAME = 'moodsync-cache-v1';
+const CACHE_NAME = 'moodsync-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -101,6 +101,8 @@ self.addEventListener('push', (event) => {
     badge: data.badge || '/icons/icon-192.png',
     tag: data.tag || 'mood-update',
     renotify: true,
+    vibrate: [200, 100, 200],
+    timestamp: Date.now(),
     data: {
       url: data.url || '/',
     },

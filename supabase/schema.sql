@@ -93,7 +93,7 @@ CREATE INDEX IF NOT EXISTS idx_mood_events_user_time ON public.mood_events (user
 CREATE TABLE IF NOT EXISTS public.push_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+  couple_id UUID REFERENCES public.couples(id) ON DELETE SET NULL,
   endpoint TEXT NOT NULL UNIQUE,
   p256dh TEXT NOT NULL,
   auth TEXT NOT NULL,

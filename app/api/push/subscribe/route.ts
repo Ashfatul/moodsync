@@ -1,12 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+
+async function getAuthenticatedUser(req: NextRequest) {
+  const supabase = await createClient();
+  let user = null;
+
+  const authHeader = req.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data?.user) {
+      user = data.user;
+    }
+  }
+
+  if (!user) {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) {
+      user = data.user;
+    }
+  }
+
+  return user;
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser(req);
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'অননুমোদিত অনুরোধ' }, { status: 401 });
     }
 
@@ -17,14 +40,29 @@ export async function POST(req: NextRequest) {
     }
 
     const { endpoint, keys } = subscription;
+    const adminSupabase = createAdminClient();
 
-    // Save or update subscription
-    const { error: insertError } = await supabase
+    let resolvedCoupleId = coupleId || null;
+    if (!resolvedCoupleId) {
+      const { data: member } = await adminSupabase
+        .from('couple_members')
+        .select('couple_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (member?.couple_id) {
+        resolvedCoupleId = member.couple_id;
+      }
+    }
+
+    // Save or update subscription via admin client to avoid RLS conflicts on existing endpoints
+    const { error: insertError } = await adminSupabase
       .from('push_subscriptions')
       .upsert(
         {
           user_id: user.id,
-          couple_id: coupleId || null,
+          couple_id: resolvedCoupleId,
           endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth,
@@ -47,10 +85,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const user = await getAuthenticatedUser(req);
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'অননুমোদিত অনুরোধ' }, { status: 401 });
     }
 
@@ -60,7 +97,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'এন্ডপয়েন্ট প্রদান করা আবশ্যক' }, { status: 400 });
     }
 
-    await supabase
+    const adminSupabase = createAdminClient();
+    await adminSupabase
       .from('push_subscriptions')
       .delete()
       .eq('user_id', user.id)

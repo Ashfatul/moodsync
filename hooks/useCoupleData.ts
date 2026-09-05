@@ -357,15 +357,30 @@ export function useCoupleData() {
         ? `চিরকুট: "${payload.note.slice(0, 50)}"`
         : `${moodDef?.shortDesc || 'মনের অনুভূতি জানানো হয়েছে।'}`;
 
-      fetch('/api/push/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          coupleId: couple.id,
-          title: pushTitle,
-          body: pushBody,
-        }),
-      }).catch((e) => console.warn('Push trigger notification error:', e));
+      (async () => {
+        try {
+          const { data: sData } = await supabase.auth.getSession();
+          const token = sData.session?.access_token;
+          const res = await fetch('/api/push/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              coupleId: couple.id,
+              title: pushTitle,
+              body: pushBody,
+            }),
+          });
+          if (!res.ok) {
+            const errRes = await res.json().catch(() => ({}));
+            console.warn('Push notification send failed:', res.status, errRes);
+          }
+        } catch (e) {
+          console.warn('Push trigger notification error:', e);
+        }
+      })();
 
       return { success: true };
     } catch (err: unknown) {
@@ -373,6 +388,32 @@ export function useCoupleData() {
       setMoodEvents((prev) => prev.filter((e) => e.id !== tempId));
       const message = err instanceof Error ? err.message : STRINGS_BN.errors.generic;
       return { success: false, error: message };
+    }
+  };
+
+  // Helper to quietly sync push subscription with new couple ID
+  const syncPushSubscriptionWithCouple = async (newCoupleId: string) => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const { data: sData } = await supabase.auth.getSession();
+        const token = sData.session?.access_token;
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            subscription: sub.toJSON(),
+            coupleId: newCoupleId,
+          }),
+        });
+      }
+    } catch {
+      // Non-blocking background sync
     }
   };
 
@@ -391,6 +432,7 @@ export function useCoupleData() {
 
       if (data) {
         setCouple(data);
+        syncPushSubscriptionWithCouple(data.id);
       }
 
       await loadInitialData();
@@ -419,6 +461,7 @@ export function useCoupleData() {
 
       if (data) {
         setCouple(data);
+        syncPushSubscriptionWithCouple(data.id);
       }
 
       await loadInitialData();

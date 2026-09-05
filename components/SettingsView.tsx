@@ -13,9 +13,13 @@ import {
   Copy,
   Check,
   Share2,
+  Send,
+  Smartphone,
+  AlertCircle,
 } from 'lucide-react';
 import { Profile, Couple } from '@/lib/types';
 import { STRINGS_BN } from '@/lib/constants/strings.bn';
+import { createClient } from '@/lib/supabase/client';
 
 interface SettingsViewProps {
   profile: Profile | null;
@@ -43,6 +47,9 @@ export default function SettingsView({
   const [copiedCode, setCopiedCode] = useState(false);
   const [pushStatus, setPushStatus] = useState<'enabled' | 'disabled' | 'unsupported'>('disabled');
   const [pushLoading, setPushLoading] = useState(false);
+  const [isIosNotPwa, setIsIosNotPwa] = useState(false);
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedRetention, setSelectedRetention] = useState<number>(couple?.retention_days || 30);
 
   const [prevProfileName, setPrevProfileName] = useState(profile?.name);
@@ -57,20 +64,53 @@ export default function SettingsView({
     setSelectedRetention(couple?.retention_days || 30);
   }
 
-  // Check current push notification permission
+  // Check current push notification permission and subscription
   useEffect(() => {
-    queueMicrotask(() => {
-      if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-        setPushStatus('unsupported');
+    let isMounted = true;
+
+    const checkPushStatus = async () => {
+      if (typeof window === 'undefined') return;
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        ('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone);
+
+      // On iOS Safari, Web Push is only supported if added to Home Screen (PWA)
+      if (isIOS && !isStandalone) {
+        if (isMounted) {
+          setIsIosNotPwa(true);
+          setPushStatus('unsupported');
+        }
         return;
       }
 
-      if (Notification.permission === 'granted') {
-        setPushStatus('enabled');
-      } else {
-        setPushStatus('disabled');
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        if (isMounted) setPushStatus('unsupported');
+        return;
       }
-    });
+
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const sub = await registration.pushManager.getSubscription();
+
+        if (isMounted) {
+          if (sub && Notification.permission === 'granted') {
+            setPushStatus('enabled');
+          } else {
+            setPushStatus('disabled');
+          }
+        }
+      } catch {
+        if (isMounted) setPushStatus('disabled');
+      }
+    };
+
+    checkPushStatus();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSaveName = async (e: React.FormEvent) => {
@@ -114,8 +154,17 @@ export default function SettingsView({
   const handleTogglePush = async () => {
     if (pushStatus === 'unsupported') return;
     setPushLoading(true);
+    setPushMessage(null);
 
     try {
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
       if (pushStatus === 'enabled') {
         // Unsubscribe
         const registration = await navigator.serviceWorker.ready;
@@ -123,17 +172,22 @@ export default function SettingsView({
         if (sub) {
           await fetch('/api/push/subscribe', {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({ endpoint: sub.endpoint }),
           });
           await sub.unsubscribe();
         }
         setPushStatus('disabled');
+        setPushMessage({ type: 'success', text: 'নোটিফিকেশন বন্ধ করা হয়েছে।' });
       } else {
         // Subscribe
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
           setPushStatus('disabled');
+          setPushMessage({
+            type: 'error',
+            text: 'ব্রাউজারে নোটিফিকেশনের অনুমতি দেওয়া হয়নি। অনুগ্রহ করে ব্রাউজার সেটিংসে গিয়ে অনুমতি দিন।',
+          });
           setPushLoading(false);
           return;
         }
@@ -142,7 +196,7 @@ export default function SettingsView({
         const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
         if (!vapidPublicKey) {
-          alert('VAPID Public Key not configured.');
+          setPushMessage({ type: 'error', text: 'VAPID Public Key কনফিগার করা নেই।' });
           setPushLoading(false);
           return;
         }
@@ -165,21 +219,74 @@ export default function SettingsView({
         });
 
         // Send subscription to server
-        await fetch('/api/push/subscribe', {
+        const res = await fetch('/api/push/subscribe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({
             subscription: subscription.toJSON(),
             coupleId: couple?.id,
           }),
         });
 
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'সাবস্ক্রিপশন সেভ করা সম্ভব হয়নি');
+        }
+
         setPushStatus('enabled');
+        setPushMessage({ type: 'success', text: 'নোটিফিকেশন সক্রিয় করা হয়েছে! সঙ্গী মুড আপডেট করলে এলার্ট পাবেন।' });
       }
     } catch (err) {
       console.error('Push toggle error:', err);
+      setPushMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'নোটিফিকেশন সেটআপে ত্রুটি ঘটেছে',
+      });
     } finally {
       setPushLoading(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    setTestPushLoading(true);
+    setPushMessage(null);
+
+    try {
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      const res = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        throw new Error(json.error || 'টেস্ট নোটিফিকেশন পাঠানো যায়নি');
+      }
+
+      if (json.count === 0) {
+        setPushMessage({
+          type: 'error',
+          text: 'ডিভাইস পাওয়া যায়নি। অনুগ্রহ করে নোটিফিকেশন বাটনটি একবার বন্ধ করে আবার চালু করুন।',
+        });
+      } else {
+        setPushMessage({
+          type: 'success',
+          text: '✅ টেস্ট নোটিফিকেশন পাঠানো হয়েছে! আপনার ফোনের নোটিফিকেশন বার চেক করুন।',
+        });
+      }
+    } catch (err) {
+      setPushMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'টেস্ট নোটিফিকেশন পাঠানো ব্যর্থ হয়েছে',
+      });
+    } finally {
+      setTestPushLoading(false);
     }
   };
 
@@ -298,30 +405,72 @@ export default function SettingsView({
           {STRINGS_BN.settingsScreen.notificationsDesc}
         </p>
 
-        {pushStatus === 'unsupported' ? (
-          <div className="p-3 rounded-xl bg-stone-100 dark:bg-stone-900 text-xs text-stone-500">
-            {STRINGS_BN.settingsScreen.pushNotSupported}
+        {isIosNotPwa ? (
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-2">
+            <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-100">
+              <Smartphone className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>আইফোনে (iOS) নোটিফিকেশন পাওয়ার নিয়ম:</span>
+            </div>
+            <p className="text-stone-600 dark:text-stone-300">
+              অ্যাপল সাফারি ব্রাউজার সরাসরি পুশ নোটিফিকেশন সাপোর্ট করে না। আইফোনে নোটিফিকেশন পেতে:
+            </p>
+            <ol className="list-decimal list-inside space-y-1 text-stone-700 dark:text-stone-200 font-medium">
+              <li>নিচে সাফারির <strong>Share (শেয়ার)</strong> বাটনে চাপ দিন।</li>
+              <li>তালিকা থেকে <strong>&apos;Add to Home Screen&apos; (হোম স্ক্রিনে যোগ করুন)</strong> চাপুন।</li>
+              <li>এবার হোম স্ক্রিনের <strong>মুডসিঙ্ক</strong> অ্যাপটি খুলুন এবং নোটিফিকেশন অন করুন।</li>
+            </ol>
+          </div>
+        ) : pushStatus === 'unsupported' ? (
+          <div className="p-3.5 rounded-xl bg-stone-100 dark:bg-stone-900 text-xs text-stone-500 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-stone-400 shrink-0" />
+            <span>{STRINGS_BN.settingsScreen.pushNotSupported} (শুধুমাত্র HTTPS বা সুরক্ষিত ব্রাউজারে কাজ করে)</span>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={handleTogglePush}
-            disabled={pushLoading}
-            className={`w-full py-3 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-              pushStatus === 'enabled'
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                : 'bg-rose-500 text-white hover:bg-rose-600'
+          <div className="space-y-2.5">
+            <button
+              type="button"
+              onClick={handleTogglePush}
+              disabled={pushLoading}
+              className={`w-full py-3 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                pushStatus === 'enabled'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-rose-500 text-white hover:bg-rose-600'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>
+                {pushLoading
+                  ? 'প্রক্রিয়াধীন...'
+                  : pushStatus === 'enabled'
+                  ? STRINGS_BN.settingsScreen.pushEnabled
+                  : STRINGS_BN.settingsScreen.enablePush}
+              </span>
+            </button>
+
+            {pushStatus === 'enabled' && (
+              <button
+                type="button"
+                onClick={handleSendTestPush}
+                disabled={testPushLoading}
+                className="w-full py-2.5 px-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/40 flex items-center justify-center gap-2 transition-all"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{testPushLoading ? 'পাঠানো হচ্ছে...' : 'একটি টেস্ট নোটিফিকেশন পাঠাও'}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {pushMessage && (
+          <div
+            className={`p-3 rounded-xl text-xs font-medium ${
+              pushMessage.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
             }`}
           >
-            <Bell className="w-4 h-4" />
-            <span>
-              {pushLoading
-                ? 'প্রক্রিয়াধীন...'
-                : pushStatus === 'enabled'
-                ? STRINGS_BN.settingsScreen.pushEnabled
-                : STRINGS_BN.settingsScreen.enablePush}
-            </span>
-          </button>
+            {pushMessage.text}
+          </div>
         )}
       </section>
 
