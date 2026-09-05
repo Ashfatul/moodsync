@@ -187,6 +187,11 @@ export default function NowView({
             {myMood && (
               <span className="text-[10px] text-stone-400 dark:text-stone-500 shrink-0">
                 ({formatTimeAgoBengali(myMood.created_at)})
+                {myMood.isOfflinePending && (
+                  <span className="ml-1 text-amber-600 dark:text-amber-400 font-semibold">
+                    • ⏳ সিঙ্ক বাকি
+                  </span>
+                )}
               </span>
             )}
           </div>

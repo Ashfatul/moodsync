@@ -48,6 +48,7 @@ export default function SettingsView({
   const [pushStatus, setPushStatus] = useState<'enabled' | 'disabled' | 'unsupported'>('disabled');
   const [pushLoading, setPushLoading] = useState(false);
   const [isIosNotPwa, setIsIosNotPwa] = useState(false);
+  const [isInstalledApp, setIsInstalledApp] = useState(false);
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [selectedRetention, setSelectedRetention] = useState<number>(couple?.retention_days || 30);
@@ -75,6 +76,10 @@ export default function SettingsView({
       const isStandalone =
         window.matchMedia('(display-mode: standalone)').matches ||
         ('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone);
+
+      if (isMounted) {
+        setIsInstalledApp(Boolean(isStandalone));
+      }
 
       // On iOS Safari, Web Push is only supported if added to Home Screen (PWA)
       if (isIOS && !isStandalone) {
@@ -393,6 +398,39 @@ export default function SettingsView({
             </div>
           </div>
         ) : null}
+      </section>
+
+      {/* PWA App Installation Section */}
+      <section className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xs space-y-2.5">
+        <h3 className="text-xs font-bold text-[var(--foreground)] flex items-center gap-2">
+          <Smartphone className="w-4 h-4 text-rose-500" />
+          <span>অ্যাপ ইনস্টলেশন (PWA)</span>
+        </h3>
+
+        {isInstalledApp ? (
+          <div className="flex items-center gap-2 p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>মুডসিঙ্ক আপনার ফোনে অ্যাপ হিসেবে ইনস্টল করা আছে (Standalone)।</span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-[11px] text-stone-500 dark:text-stone-400">
+              ব্রাউজার ছাড়া সরাসরি হোমস্ক্রিন থেকে ফুল-স্ক্রিন মোডে ব্যবহার এবং তাৎক্ষণিক পুশ নোটিফিকেশন পেতে অ্যাপটি ইনস্টল করুন।
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('moodsync:open-install'));
+                }
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white text-xs font-bold shadow-2xs transition-all flex items-center justify-center gap-2 active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>হোমস্ক্রিনে অ্যাপ ইনস্টল করুন 📲</span>
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 3. Notifications Section */}

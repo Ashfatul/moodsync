@@ -7,6 +7,26 @@ import { Profile, Couple, MoodEvent, MoodEventWithDetails, UserPresenceState } f
 import { MOODS, NEEDS, STRINGS_BN } from '@/lib/constants/strings.bn';
 import { FloatingParticle, IncomingNudgeAlert } from '@/components/FloatingHearts';
 
+interface QueuedMoodEvent {
+  tempId: string;
+  coupleId: string;
+  userId: string;
+  moodId: string;
+  needId?: string | null;
+  intimacyMoodId?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+const CACHE_KEYS = {
+  USER: 'moodsync_cache_user',
+  PROFILE: 'moodsync_cache_profile',
+  COUPLE: 'moodsync_cache_couple',
+  PARTNER: 'moodsync_cache_partner',
+  EVENTS: 'moodsync_cache_events',
+  QUEUE: 'moodsync_offline_queue',
+};
+
 export function useCoupleData() {
   const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<User | null>(null);
@@ -17,6 +37,7 @@ export function useCoupleData() {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [partnerPresence, setPartnerPresence] = useState<UserPresenceState | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -25,64 +46,254 @@ export function useCoupleData() {
   const [incomingNudge, setIncomingNudge] = useState<IncomingNudgeAlert | null>(null);
 
   const coupleIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     coupleIdRef.current = couple?.id || null;
-  }, [couple?.id]);
+    userIdRef.current = user?.id || null;
+  }, [couple?.id, user?.id]);
 
-  // Refresh mood events
-  const fetchMoodEvents = useCallback(async (cId: string, currentUserId: string, pProfile: Profile | null) => {
-    setIsSyncing(true);
+  // 1. Initial Cache Hydration on mount (Instant offline startup)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    setIsOnline(navigator.onLine);
+
     try {
-      const { data, error } = await supabase
-        .from('mood_events')
-        .select('*')
-        .eq('couple_id', cId)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const cachedUser = localStorage.getItem(CACHE_KEYS.USER);
+      const cachedProf = localStorage.getItem(CACHE_KEYS.PROFILE);
+      const cachedCpl = localStorage.getItem(CACHE_KEYS.COUPLE);
+      const cachedPartner = localStorage.getItem(CACHE_KEYS.PARTNER);
+      const cachedEvts = localStorage.getItem(CACHE_KEYS.EVENTS);
+      const cachedQueue = localStorage.getItem(CACHE_KEYS.QUEUE);
 
-      if (error) {
-        console.error('Error fetching mood events:', error);
+      if (cachedQueue) {
+        const q = JSON.parse(cachedQueue);
+        if (Array.isArray(q)) setPendingSyncCount(q.length);
+      }
+
+      if (cachedProf && cachedCpl) {
+        if (cachedUser) setUser(JSON.parse(cachedUser));
+        setProfile(JSON.parse(cachedProf));
+        setCouple(JSON.parse(cachedCpl));
+        if (cachedPartner) setPartnerProfile(JSON.parse(cachedPartner));
+        if (cachedEvts) setMoodEvents(JSON.parse(cachedEvts));
+        setLoading(false);
+      }
+    } catch (e) {
+      console.warn('Failed to hydrate from offline cache:', e);
+    }
+  }, []);
+
+  // Refresh mood events from DB with offline queue merging
+  const fetchMoodEvents = useCallback(
+    async (cId: string, currentUserId: string, pProfile: Profile | null) => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
         return;
       }
 
-      if (data) {
-        const enriched: MoodEventWithDetails[] = data.map((evt: MoodEvent) => {
-          const isMe = evt.user_id === currentUserId;
-          return {
-            ...evt,
-            isCurrentUser: isMe,
-            authorName: isMe ? STRINGS_BN.nowScreen.you : (pProfile?.name || 'সঙ্গী'),
-          };
-        });
-        setMoodEvents(enriched);
+      setIsSyncing(true);
+      try {
+        const { data, error } = await supabase
+          .from('mood_events')
+          .select('*')
+          .eq('couple_id', cId)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (error) {
+          console.error('Error fetching mood events:', error);
+          return;
+        }
+
+        if (data) {
+          const enriched: MoodEventWithDetails[] = data.map((evt: MoodEvent) => {
+            const isMe = evt.user_id === currentUserId;
+            return {
+              ...evt,
+              isCurrentUser: isMe,
+              authorName: isMe ? STRINGS_BN.nowScreen.you : (pProfile?.name || 'সঙ্গী'),
+            };
+          });
+
+          // Merge any pending offline queued items at the top
+          let finalEvents = enriched;
+          try {
+            const queuedRaw = localStorage.getItem(CACHE_KEYS.QUEUE);
+            if (queuedRaw) {
+              const queued: QueuedMoodEvent[] = JSON.parse(queuedRaw);
+              if (Array.isArray(queued) && queued.length > 0) {
+                const queuedDetails: MoodEventWithDetails[] = queued.map((q) => ({
+                  id: q.tempId,
+                  couple_id: q.coupleId,
+                  user_id: q.userId,
+                  mood_id: q.moodId,
+                  need_id: q.needId || null,
+                  intimacy_mood_id: q.intimacyMoodId || null,
+                  note: q.note || null,
+                  created_at: q.createdAt,
+                  isCurrentUser: true,
+                  authorName: STRINGS_BN.nowScreen.you,
+                  isOfflinePending: true,
+                }));
+                finalEvents = [...queuedDetails, ...enriched];
+              }
+            }
+            localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(finalEvents));
+          } catch {}
+
+          setMoodEvents(finalEvents);
+        }
+      } catch (err) {
+        console.warn('Fetch mood events failed (likely offline):', err);
+      } finally {
+        setIsSyncing(false);
       }
-    } catch (err) {
-      console.error('Fetch mood events failed:', err);
-    } finally {
-      setIsSyncing(false);
+    },
+    [supabase]
+  );
+
+  // Helper: Queue an offline mood event into LocalStorage
+  const queueOfflineMood = useCallback((item: QueuedMoodEvent) => {
+    try {
+      const existing = localStorage.getItem(CACHE_KEYS.QUEUE);
+      const queue: QueuedMoodEvent[] = existing ? JSON.parse(existing) : [];
+      queue.push(item);
+      localStorage.setItem(CACHE_KEYS.QUEUE, JSON.stringify(queue));
+      setPendingSyncCount(queue.length);
+    } catch (e) {
+      console.error('Failed to queue offline mood:', e);
     }
+  }, []);
+
+  // Helper: Sync offline queue with Supabase when online
+  const syncOfflineQueue = useCallback(async () => {
+    if (typeof window === 'undefined' || !navigator.onLine) return;
+
+    let queue: QueuedMoodEvent[] = [];
+    try {
+      const existing = localStorage.getItem(CACHE_KEYS.QUEUE);
+      if (!existing) return;
+      queue = JSON.parse(existing);
+      if (!Array.isArray(queue) || queue.length === 0) return;
+    } catch {
+      return;
+    }
+
+    setIsSyncing(true);
+    const remainingQueue: QueuedMoodEvent[] = [];
+
+    for (const item of queue) {
+      try {
+        const { data: inserted, error } = await supabase
+          .from('mood_events')
+          .insert({
+            couple_id: item.coupleId,
+            user_id: item.userId,
+            mood_id: item.moodId,
+            need_id: item.needId || null,
+            intimacy_mood_id: item.intimacyMoodId || null,
+            note: item.note || null,
+            created_at: item.createdAt,
+          })
+          .select()
+          .single();
+
+        if (error || !inserted) {
+          remainingQueue.push(item);
+        } else {
+          // Update event in React state and LocalStorage
+          setMoodEvents((prev) => {
+            const next = prev.map((e) =>
+              e.id === item.tempId
+                ? { ...e, id: inserted.id, isOfflinePending: false }
+                : e
+            );
+            try {
+              localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+
+          // Trigger push notification quietly
+          try {
+            const { data: sData } = await supabase.auth.getSession();
+            const token = sData.session?.access_token;
+            const moodDef = MOODS.find((m) => m.id === item.moodId);
+            fetch('/api/push/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                coupleId: item.coupleId,
+                title: `মুড আপডেট: ${moodDef?.emoji || '❤️'} ${moodDef?.name || ''}`,
+                body: item.note ? `চিরকুট: "${item.note}"` : 'মনের অনুভূতি জানানো হয়েছে।',
+              }),
+            }).catch(() => {});
+          } catch {}
+        }
+      } catch {
+        remainingQueue.push(item);
+      }
+    }
+
+    if (remainingQueue.length > 0) {
+      localStorage.setItem(CACHE_KEYS.QUEUE, JSON.stringify(remainingQueue));
+      setPendingSyncCount(remainingQueue.length);
+    } else {
+      localStorage.removeItem(CACHE_KEYS.QUEUE);
+      setPendingSyncCount(0);
+    }
+
+    setIsSyncing(false);
   }, [supabase]);
 
-  // Load all user and couple data
+  // Load all user and couple data with offline resilience
   const loadInitialData = useCallback(async () => {
     try {
-      setLoading(true);
       setErrorMsg(null);
+
+      // If completely offline, keep using cached state
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setIsOnline(false);
+        setLoading(false);
+        return;
+      }
 
       const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser();
 
       if (authErr || !authUser) {
+        // If network error occurred, keep cached data
+        if (
+          authErr &&
+          (authErr.message?.includes('FetchError') ||
+            authErr.message?.includes('network') ||
+            authErr.message?.includes('Failed to fetch'))
+        ) {
+          setIsOnline(false);
+          setLoading(false);
+          return;
+        }
+
+        // Genuine signout
         setUser(null);
         setProfile(null);
         setCouple(null);
         setPartnerProfile(null);
         setMoodEvents([]);
+        localStorage.removeItem(CACHE_KEYS.USER);
+        localStorage.removeItem(CACHE_KEYS.PROFILE);
+        localStorage.removeItem(CACHE_KEYS.COUPLE);
+        localStorage.removeItem(CACHE_KEYS.PARTNER);
+        localStorage.removeItem(CACHE_KEYS.EVENTS);
         setLoading(false);
         return;
       }
 
       setUser(authUser);
+      localStorage.setItem(CACHE_KEYS.USER, JSON.stringify(authUser));
 
       // 1. Get or create current user's profile
       let prof: Profile | null = null;
@@ -104,6 +315,7 @@ export function useCoupleData() {
         prof = existingProf;
       }
       setProfile(prof);
+      if (prof) localStorage.setItem(CACHE_KEYS.PROFILE, JSON.stringify(prof));
 
       // 2. Check couple membership
       const { data: memberships, error: memErr } = await supabase
@@ -130,6 +342,7 @@ export function useCoupleData() {
         .single();
 
       setCouple(coupleData);
+      if (coupleData) localStorage.setItem(CACHE_KEYS.COUPLE, JSON.stringify(coupleData));
 
       // 4. Find partner member
       const { data: allMembers } = await supabase
@@ -148,6 +361,7 @@ export function useCoupleData() {
             .single();
           foundPartner = pData;
           setPartnerProfile(pData);
+          if (pData) localStorage.setItem(CACHE_KEYS.PARTNER, JSON.stringify(pData));
         }
       } else {
         setPartnerProfile(null);
@@ -155,13 +369,16 @@ export function useCoupleData() {
 
       // 5. Fetch mood events
       await fetchMoodEvents(activeCoupleId, authUser.id, foundPartner);
+
+      // 6. Sync any offline queued moods
+      syncOfflineQueue();
     } catch (err: unknown) {
-      console.error('Initialization error:', err);
-      setErrorMsg(STRINGS_BN.errors.generic);
+      console.warn('Initialization offline fallback:', err);
+      setIsOnline(false);
     } finally {
       setLoading(false);
     }
-  }, [supabase, fetchMoodEvents]);
+  }, [supabase, fetchMoodEvents, syncOfflineQueue]);
 
   // Initial load
   useEffect(() => {
@@ -180,15 +397,26 @@ export function useCoupleData() {
     };
   }, [loadInitialData, supabase]);
 
-  // Network and Mobile visibility change handler (wake from sleep)
+  // Network online/offline event listeners and auto-sync
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncOfflineQueue();
+      if (coupleIdRef.current && userIdRef.current) {
+        fetchMoodEvents(coupleIdRef.current, userIdRef.current, partnerProfile);
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && coupleIdRef.current && user) {
-        // App woke up from background/sleep: immediate re-sync
-        fetchMoodEvents(coupleIdRef.current, user.id, partnerProfile);
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        syncOfflineQueue();
+        if (coupleIdRef.current && userIdRef.current) {
+          fetchMoodEvents(coupleIdRef.current, userIdRef.current, partnerProfile);
+        }
       }
     };
 
@@ -201,7 +429,7 @@ export function useCoupleData() {
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchMoodEvents, user, partnerProfile]);
+  }, [fetchMoodEvents, syncOfflineQueue, partnerProfile]);
 
   // Spawn flying hearts & emojis for Miss You Bombs
   const triggerFloatingHearts = useCallback((emoji = '❤️', count = 8) => {
@@ -219,27 +447,21 @@ export function useCoupleData() {
       });
     }
 
-    setParticles((prev) => [...prev.slice(-20), ...newParticles]);
+    setParticles((prev) => [...prev.slice(-30), ...newParticles]);
 
+    // Clean up
     setTimeout(() => {
       setParticles((prev) => prev.filter((p) => !newParticles.some((np) => np.id === p.id)));
     }, 4000);
   }, []);
 
-  // Supabase Realtime Subscription: Filtered by couple_id
+  // Realtime subscription (Supabase broadcast, postgres changes, online presence)
   useEffect(() => {
     if (!couple?.id || !user?.id) return;
 
     const channelName = `couple-realtime-${couple.id}`;
-    const channel = supabase.channel(channelName, {
-      config: {
-        presence: {
-          key: user.id,
-        },
-      },
-    });
+    const channel = supabase.channel(channelName);
 
-    // 1. Listen for new or updated mood events
     channel
       .on(
         'postgres_changes',
@@ -259,9 +481,12 @@ export function useCoupleData() {
           };
 
           setMoodEvents((prev) => {
-            // Deduplicate if already present
             if (prev.some((e) => e.id === newEvt.id)) return prev;
-            return [enriched, ...prev];
+            const updated = [enriched, ...prev];
+            try {
+              localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(updated));
+            } catch {}
+            return updated;
           });
         }
       )
@@ -274,11 +499,9 @@ export function useCoupleData() {
           filter: `couple_id=eq.${couple.id}`,
         },
         () => {
-          // If events are deleted / cleared
           fetchMoodEvents(couple.id, user.id, partnerProfile);
         }
       )
-      // 2. Listen for partner joining
       .on(
         'postgres_changes',
         {
@@ -291,7 +514,6 @@ export function useCoupleData() {
           loadInitialData();
         }
       )
-      // 3. Listen for live incoming quick nudges / Miss You Bombs
       .on(
         'broadcast',
         { event: 'quick_nudge' },
@@ -310,7 +532,6 @@ export function useCoupleData() {
           }
         }
       )
-      // 4. Lightweight presence: track partner online state
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         let partnerActive: UserPresenceState | null = null;
@@ -340,9 +561,9 @@ export function useCoupleData() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [couple?.id, user?.id, partnerProfile, supabase, fetchMoodEvents, loadInitialData]);
+  }, [couple?.id, user?.id, partnerProfile, supabase, fetchMoodEvents, loadInitialData, triggerFloatingHearts]);
 
-  // Submit Mood Event (Instant optimistic UI + DB insert + Push Notification)
+  // Submit Mood Event (Instant optimistic UI + LocalStorage Queue if offline + DB insert + Push)
   const submitMood = async (payload: {
     moodId: string;
     needId?: string | null;
@@ -351,7 +572,9 @@ export function useCoupleData() {
   }) => {
     if (!couple?.id || !user?.id) return { success: false, error: 'কাপল পাওয়া যায়নি' };
 
-    const tempId = 'temp-' + Date.now();
+    const tempId = 'offline-' + Date.now();
+    const isCurrentlyOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
     const optimisticEvent: MoodEventWithDetails = {
       id: tempId,
       couple_id: couple.id,
@@ -363,11 +586,34 @@ export function useCoupleData() {
       created_at: new Date().toISOString(),
       isCurrentUser: true,
       authorName: STRINGS_BN.nowScreen.you,
+      isOfflinePending: isCurrentlyOffline,
     };
 
-    // Optimistic update
-    setMoodEvents((prev) => [optimisticEvent, ...prev]);
+    // 1. Immediate UI update and local cache persistence
+    setMoodEvents((prev) => {
+      const updated = [optimisticEvent, ...prev];
+      try {
+        localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
+    // 2. If offline, save into queue and return success immediately
+    if (isCurrentlyOffline) {
+      queueOfflineMood({
+        tempId,
+        coupleId: couple.id,
+        userId: user.id,
+        moodId: payload.moodId,
+        needId: payload.needId || null,
+        intimacyMoodId: payload.intimacyMoodId || null,
+        note: payload.note || null,
+        createdAt: optimisticEvent.created_at,
+      });
+      return { success: true, isOffline: true };
+    }
+
+    // 3. If online, attempt insert
     try {
       const { data: inserted, error: insertErr } = await supabase
         .from('mood_events')
@@ -383,16 +629,31 @@ export function useCoupleData() {
         .single();
 
       if (insertErr) {
-        console.error('Insert mood error:', insertErr);
-        // Rollback optimistic
-        setMoodEvents((prev) => prev.filter((e) => e.id !== tempId));
-        return { success: false, error: STRINGS_BN.errors.generic };
+        // Network or DB error -> queue offline instead of discarding!
+        console.warn('Mood insert failed, falling back to offline queue:', insertErr);
+        queueOfflineMood({
+          tempId,
+          coupleId: couple.id,
+          userId: user.id,
+          moodId: payload.moodId,
+          needId: payload.needId || null,
+          intimacyMoodId: payload.intimacyMoodId || null,
+          note: payload.note || null,
+          createdAt: optimisticEvent.created_at,
+        });
+        return { success: true, isOffline: true };
       }
 
       // Replace temp with real record
-      setMoodEvents((prev) =>
-        prev.map((e) => (e.id === tempId ? { ...e, id: inserted.id } : e))
-      );
+      setMoodEvents((prev) => {
+        const next = prev.map((e) =>
+          e.id === tempId ? { ...e, id: inserted.id, isOfflinePending: false } : e
+        );
+        try {
+          localStorage.setItem(CACHE_KEYS.EVENTS, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
 
       // Trigger Web Push to partner
       const moodDef = MOODS.find((m) => m.id === payload.moodId);
@@ -431,10 +692,18 @@ export function useCoupleData() {
 
       return { success: true };
     } catch (err: unknown) {
-      console.error('Submit mood failed:', err);
-      setMoodEvents((prev) => prev.filter((e) => e.id !== tempId));
-      const message = err instanceof Error ? err.message : STRINGS_BN.errors.generic;
-      return { success: false, error: message };
+      console.warn('Network exception during submit, queueing offline:', err);
+      queueOfflineMood({
+        tempId,
+        coupleId: couple.id,
+        userId: user.id,
+        moodId: payload.moodId,
+        needId: payload.needId || null,
+        intimacyMoodId: payload.intimacyMoodId || null,
+        note: payload.note || null,
+        createdAt: optimisticEvent.created_at,
+      });
+      return { success: true, isOffline: true };
     }
   };
 
@@ -531,7 +800,11 @@ export function useCoupleData() {
         .eq('id', user.id);
 
       if (!error) {
-        setProfile((prev) => (prev ? { ...prev, name: newName.trim() } : null));
+        setProfile((prev) => {
+          const next = prev ? { ...prev, name: newName.trim() } : null;
+          if (next) localStorage.setItem(CACHE_KEYS.PROFILE, JSON.stringify(next));
+          return next;
+        });
       }
     } catch (err) {
       console.error('Error updating name:', err);
@@ -548,7 +821,11 @@ export function useCoupleData() {
         .eq('id', couple.id);
 
       if (!error) {
-        setCouple((prev) => (prev ? { ...prev, retention_days: days } : null));
+        setCouple((prev) => {
+          const next = prev ? { ...prev, retention_days: days } : null;
+          if (next) localStorage.setItem(CACHE_KEYS.COUPLE, JSON.stringify(next));
+          return next;
+        });
       }
     } catch (err) {
       console.error('Error updating retention:', err);
@@ -566,6 +843,9 @@ export function useCoupleData() {
 
       if (!error) {
         setMoodEvents([]);
+        localStorage.removeItem(CACHE_KEYS.EVENTS);
+        localStorage.removeItem(CACHE_KEYS.QUEUE);
+        setPendingSyncCount(0);
       }
     } catch (err) {
       console.error('Error deleting history:', err);
@@ -616,6 +896,14 @@ export function useCoupleData() {
     customMessage?: string;
   }) => {
     if (!couple?.id || !user) return { success: false };
+
+    // If offline, notify user gently
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return {
+        success: false,
+        error: 'ইন্টারনেট সংযোগ নেই। অনলাইনে এলে পিং পাঠানো যাবে।',
+      };
+    }
 
     // 1. Locally spawn floating emojis
     triggerFloatingHearts(payload.emoji, Math.min(payload.count, 20));
@@ -676,6 +964,13 @@ export function useCoupleData() {
     setCouple(null);
     setPartnerProfile(null);
     setMoodEvents([]);
+    localStorage.removeItem(CACHE_KEYS.USER);
+    localStorage.removeItem(CACHE_KEYS.PROFILE);
+    localStorage.removeItem(CACHE_KEYS.COUPLE);
+    localStorage.removeItem(CACHE_KEYS.PARTNER);
+    localStorage.removeItem(CACHE_KEYS.EVENTS);
+    localStorage.removeItem(CACHE_KEYS.QUEUE);
+    setPendingSyncCount(0);
   };
 
   // Derive partner's latest mood and current user's latest mood
@@ -694,6 +989,7 @@ export function useCoupleData() {
     loading,
     isOnline,
     isSyncing,
+    pendingSyncCount,
     partnerPresence,
     errorMsg,
     submitMood,
@@ -705,6 +1001,7 @@ export function useCoupleData() {
     exportData,
     signOut,
     refreshData: loadInitialData,
+    syncOfflineQueue,
     // Quick Nudge & Miss You Bomb
     particles,
     incomingNudge,

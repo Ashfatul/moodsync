@@ -78,11 +78,16 @@ export default function TodayView({ events, partnerProfile }: TodayViewProps) {
                 <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-2xs transition-all hover:border-rose-200 dark:hover:border-rose-900">
                   <div className="flex items-center justify-between pb-1.5 border-b border-[var(--card-border)]/50 text-[11px]">
                     <span
-                      className={`font-bold ${
+                      className={`font-bold flex items-center gap-1.5 ${
                         isMe ? 'text-teal-600 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'
                       }`}
                     >
-                      {author}
+                      <span>{author}</span>
+                      {event.isOfflinePending && (
+                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-md border border-amber-200/80 dark:border-amber-800/60">
+                          ⏳ সিঙ্ক বাকি
+                        </span>
+                      )}
                     </span>
                     <span className="text-stone-500 dark:text-stone-400 font-medium">
                       {formatTimeBengali(event.created_at)}

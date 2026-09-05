@@ -35,6 +35,7 @@ export interface MoodEvent {
 export interface MoodEventWithDetails extends MoodEvent {
   authorName?: string;
   isCurrentUser?: boolean;
+  isOfflinePending?: boolean;
 }
 
 export interface PushSubscriptionData {

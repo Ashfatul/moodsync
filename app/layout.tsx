@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Hind_Siliguri } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 const hindSiliguri = Hind_Siliguri({
   weight: ["300", "400", "500", "600", "700"],
@@ -24,8 +25,14 @@ export const metadata: Metadata = {
   description: "মুড লুকানোর জন্য নয়। মুড বোঝার জন্য। ❤️",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/icon-192.png",
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -43,6 +50,7 @@ export default function RootLayout({
     <html lang="bn" className={`${hindSiliguri.variable} h-full`}>
       <body className="min-h-full flex flex-col font-sans antialiased bg-[var(--background)] text-[var(--foreground)] selection:bg-rose-100 selection:text-rose-900">
         <ServiceWorkerRegister />
+        <PwaInstallPrompt />
         {children}
       </body>
     </html>

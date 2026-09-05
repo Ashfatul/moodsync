@@ -30,6 +30,7 @@ export default function Home() {
     loading,
     isOnline,
     isSyncing,
+    pendingSyncCount,
     partnerPresence,
     submitMood,
     createCouple,
@@ -86,7 +87,11 @@ export default function Home() {
   if (!user) {
     return (
       <>
-        <OfflineBanner isOnline={isOnline} />
+        <OfflineBanner
+          isOnline={isOnline}
+          pendingSyncCount={pendingSyncCount}
+          isSyncing={isSyncing}
+        />
         <AuthView
           onOpenOnboarding={() => setIsOnboardingOpen(true)}
           onSuccess={refreshData}
@@ -103,7 +108,11 @@ export default function Home() {
   if (!couple || (!partnerProfile && couple.invite_code)) {
     return (
       <>
-        <OfflineBanner isOnline={isOnline} />
+        <OfflineBanner
+          isOnline={isOnline}
+          pendingSyncCount={pendingSyncCount}
+          isSyncing={isSyncing}
+        />
         <PairingView
           couple={couple}
           profile={profile}
@@ -127,7 +136,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen min-h-dvh flex flex-col bg-[var(--background)] text-[var(--foreground)]">
-      <OfflineBanner isOnline={isOnline} />
+      <OfflineBanner
+        isOnline={isOnline}
+        pendingSyncCount={pendingSyncCount}
+        isSyncing={isSyncing}
+      />
 
       {/* Top Header */}
       <Header

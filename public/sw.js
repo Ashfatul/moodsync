@@ -1,4 +1,4 @@
-const CACHE_NAME = 'moodsync-cache-v2';
+const CACHE_NAME = 'moodsync-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -33,12 +33,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first strategy with cache fallback
+// Fetch event listener with intelligent offline caching
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
   const url = new URL(event.request.url);
 
-  // Skip caching Supabase API and auth requests
+  // Skip caching Supabase API, DB queries, and auth endpoints
   if (
     url.hostname.includes('supabase.co') ||
     url.pathname.startsWith('/api/') ||
@@ -47,10 +48,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 1. Cache-first strategy for immutable static assets (Next.js bundles, icons, fonts)
+  if (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/manifest.json'
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // 2. Network-first with cache fallback for page navigation and documents
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful GET responses for offline use
         if (response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -64,8 +86,10 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) {
           return cachedResponse;
         }
+        // If navigating to any page offline, fall back to cached root application shell
         if (event.request.mode === 'navigate') {
-          return caches.match('/');
+          const rootCached = await caches.match('/');
+          if (rootCached) return rootCached;
         }
         return new Response('Network error occurred while offline.', {
           status: 503,
